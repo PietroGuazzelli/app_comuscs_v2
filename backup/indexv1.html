@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Check-in COMUSCS</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    padding: 20px;
+}
+#reader {
+    width: 300px;
+    margin: auto;
+}
+.result {
+    margin-top: 20px;
+    font-size: 18px;
+}
+.ok { color: green; }
+.erro { color: red; }
+</style>
+</head>
+
+<body>
+
+<h2>Check-in COMUSCS</h2>
+
+<div id="reader"></div>
+
+<div class="result" id="resultado"></div>
+
+<script>
+const SUPABASE_URL = "https://goytizsanwooamfjtvqk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Q7seQ6RlNFw1cWuHqgV4qQ_QB42w8Sp";
+
+const EVENTO_ID = "e94498f6-9207-43a9-b051-3bc4077f9239";
+
+async function buscarInscrito(numero) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numero}`, {
+        headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`
+        }
+    });
+
+    return await res.json();
+}
+
+async function registrarPresenca(inscrito) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`
+        },
+        body: JSON.stringify({
+            evento_id: EVENTO_ID,
+            inscrito_id: inscrito.id,
+            numero_inscricao: inscrito.numero_inscricao,
+            metodo: "QR Code"
+        })
+    });
+
+    return res;
+}
+
+async function onScanSuccess(decodedText) {
+    document.getElementById("resultado").innerHTML = "Lendo...";
+
+    try {
+        const inscritos = await buscarInscrito(decodedText);
+
+        if (inscritos.length === 0) {
+            document.getElementById("resultado").innerHTML = "<span class='erro'>Não encontrado</span>";
+            return;
+        }
+
+        const inscrito = inscritos[0];
+
+        const res = await registrarPresenca(inscrito);
+
+        if (res.ok) {
+            document.getElementById("resultado").innerHTML =
+                `<span class='ok'>✔ ${inscrito.nome}</span>`;
+        } else {
+            document.getElementById("resultado").innerHTML =
+                `<span class='erro'>Já registrado</span>`;
+        }
+
+    } catch (err) {
+        document.getElementById("resultado").innerHTML =
+            "<span class='erro'>Erro</span>";
+    }
+}
+
+const html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader",
+    { fps: 10, qrbox: 250 }
+);
+
+html5QrcodeScanner.render(onScanSuccess);
+</script>
+
+</body>
+</html>

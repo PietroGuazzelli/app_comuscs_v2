@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Check-in COMUSCS</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+    transition: background-color 0.3s;
+}
+
+#reader {
+    width: 320px;
+    margin: auto;
+}
+
+.result {
+    margin-top: 20px;
+    font-size: 22px;
+}
+
+.ok {
+    color: green;
+    font-weight: bold;
+}
+
+.erro {
+    color: red;
+    font-weight: bold;
+}
+
+body.ok-bg {
+    background-color: #d4edda;
+}
+
+body.erro-bg {
+    background-color: #f8d7da;
+}
+
+#resultado {
+    transition: opacity 0.3s;
+}
+
+table {
+    border-collapse: collapse;
+    margin-top: 15px;
+    font-size: 14px;
+}
+
+th, td {
+    padding: 8px;
+    border: 1px solid #ccc;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+button, select, input {
+    padding: 10px;
+    margin: 6px;
+}
+
+.admin-box {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin-top: 15px;
+    border-radius: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Check-in COMUSCS</h2>
+
+<label>Evento:</label>
+<select id="eventoSelect" onchange="trocarEvento()">
+  <option value="">Carregando eventos...</option>
+</select>
+
+<div id="reader"></div>
+
+<div class="result" id="resultado"></div>
+
+<audio id="som-ok" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="som-erro" src="https://actions.google.com/sounds/v1/cartoon/boing.ogg"></audio>
+
+<hr>
+
+<h3 id="totalPresencas">Presenças: 0</h3>
+
+<table width="100%">
+  <thead>
+    <tr>
+      <th>Nome</th>
+      <th>Nº Inscrição</th>
+      <th>Horário</th>
+    </tr>
+  </thead>
+  <tbody id="listaPresencas"></tbody>
+</table>
+
+<hr>
+
+<button onclick="abrirAdmin()">Área do administrador</button>
+
+<div id="adminArea" style="display:none;" class="admin-box">
+  <h3>Gestão do Evento</h3>
+
+  <h4>Criar novo evento</h4>
+  <input id="novoEventoNome" placeholder="Nome do evento">
+  <input id="novoEventoData" type="date">
+  <button onclick="criarEvento()">Criar evento</button>
+
+  <hr>
+
+  <h4>Importar lista padrão CSV</h4>
+  <p>Use o CSV original exportado do sistema, sem renomear colunas.</p>
+  <input type="file" id="csvInput" accept=".csv">
+  <button onclick="importarCSV()">Importar lista para o evento selecionado</button>
+
+  <hr>
+
+  <button onclick="exportarExcel()">Exportar presenças em Excel</button>
+    <button onclick="exportarExcel()">
+    Exportar presenças em Excel
+</button>
+
+<hr>
+
+<h4>Zona de risco</h4>
+
+<button onclick="limparEventoAtual()" style="background:#ffc107;">
+  Limpar evento atual
+</button>
+
+<button onclick="resetCompleto()" style="background:#dc3545; color:white;">
+  RESET COMPLETO
+</button>
+
+</div>
+
+<script>
+const SUPABASE_URL = "https://goytizsanwooamfjtvqk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Q7seQ6RlNFw1cWuHqgV4qQ_QB42w8Sp";
+
+const SENHA_ADMIN = "comuscs2026";
+
+let processando = false;
+let EVENTO_ID = "";
+let EVENTO_NOME = "";
+
+function headers(extra = {}) {
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        ...extra
+    };
+}
+
+function abrirAdmin() {
+    const senha = prompt("Digite a senha de administrador:");
+
+    if (senha === SENHA_ADMIN) {
+        document.getElementById("adminArea").style.display = "block";
+        alert("Acesso liberado.");
+    } else {
+        alert("Senha incorreta.");
+    }
+}
+
+function tocarSom(tipo) {
+    const som = document.getElementById(tipo === "ok" ? "som-ok" : "som-erro");
+    som.currentTime = 0;
+    som.play().catch(() => {});
+}
+
+function setStatus(tipo) {
+    document.body.classList.remove("ok-bg", "erro-bg");
+
+    if (tipo === "ok") document.body.classList.add("ok-bg");
+    if (tipo === "erro") document.body.classList.add("erro-bg");
+}
+
+function resetarLeitura() {
+    setTimeout(() => {
+        document.getElementById("resultado").style.opacity = "0";
+
+        setTimeout(() => {
+            document.getElementById("resultado").innerHTML = "";
+            document.getElementById("resultado").style.opacity = "1";
+            document.body.classList.remove("ok-bg", "erro-bg");
+            processando = false;
+        }, 300);
+    }, 2500);
+}
+
+async function carregarEventos() {
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/eventos?select=id,nome,data_evento&order=criado_em.desc`,
+        { headers: headers() }
+    );
+
+    const eventos = await res.json();
+    const select = document.getElementById("eventoSelect");
+
+    select.innerHTML = "";
+
+    if (!eventos.length) {
+        select.innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
+        return;
+    }
+
+    eventos.forEach(ev => {
+        const option = document.createElement("option");
+        option.value = ev.id;
+        option.textContent = ev.data_evento ? `${ev.nome} - ${ev.data_evento}` : ev.nome;
+        option.dataset.nome = ev.nome;
+        select.appendChild(option);
+    });
+
+    EVENTO_ID = select.value;
+    EVENTO_NOME = select.options[select.selectedIndex].dataset.nome;
+    carregarPresencas();
+}
+
+function trocarEvento() {
+    const select = document.getElementById("eventoSelect");
+    EVENTO_ID = select.value;
+    EVENTO_NOME = select.options[select.selectedIndex]?.dataset.nome || "evento";
+    carregarPresencas();
+}
+
+async function criarEvento() {
+    const nome = document.getElementById("novoEventoNome").value.trim();
+    const data = document.getElementById("novoEventoData").value;
+
+    if (!nome) {
+        alert("Digite o nome do evento.");
+        return;
+    }
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+        method: "POST",
+        headers: headers({
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }),
+        body: JSON.stringify({
+            nome: nome,
+            data_evento: data || null
+        })
+    });
+
+    if (!res.ok) {
+        const erro = await res.json();
+        alert("Erro ao criar evento: " + (erro.message || JSON.stringify(erro)));
+        return;
+    }
+
+    alert("Evento criado.");
+    document.getElementById("novoEventoNome").value = "";
+    document.getElementById("novoEventoData").value = "";
+    await carregarEventos();
+}
+
+async function buscarInscrito(numero) {
+    numero = numero.trim();
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${encodeURIComponent(numero)}`,
+        { headers: headers() }
+    );
+
+    return await res.json();
+}
+
+async function registrarPresenca(inscrito) {
+    return await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
+        method: "POST",
+        headers: headers({
+            "Content-Type": "application/json"
+        }),
+        body: JSON.stringify({
+            evento_id: EVENTO_ID,
+            inscrito_id: inscrito.id,
+            numero_inscricao: inscrito.numero_inscricao,
+            metodo: "QR Code"
+        })
+    });
+}
+
+async function carregarPresencas() {
+    if (!EVENTO_ID) return;
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,horario_checkin,inscritos(nome)&order=horario_checkin.desc`,
+        { headers: headers() }
+    );
+
+    const dados = await res.json();
+
+    document.getElementById("totalPresencas").innerText =
+        "Presenças: " + dados.length;
+
+    document.getElementById("listaPresencas").innerHTML = dados.map(p => `
+        <tr>
+            <td>${p.inscritos?.nome || "-"}</td>
+            <td>${p.numero_inscricao}</td>
+            <td>${new Date(p.horario_checkin).toLocaleString("pt-BR")}</td>
+        </tr>
+    `).join("");
+}
+
+async function exportarExcel() {
+    if (!EVENTO_ID) {
+        alert("Selecione um evento.");
+        return;
+    }
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,horario_checkin,metodo,inscritos(nome,email,ra,cpf)&order=horario_checkin.asc`,
+        { headers: headers() }
+    );
+
+    const dados = await res.json();
+
+    const planilha = dados.map(p => ({
+        "Nome": p.inscritos?.nome || "",
+        "Número de Inscrição": p.numero_inscricao || "",
+        "E-mail": p.inscritos?.email || "",
+        "RA": p.inscritos?.ra || "",
+        "Documento/CPF": p.inscritos?.cpf || "",
+        "Horário do Check-in": new Date(p.horario_checkin).toLocaleString("pt-BR"),
+        "Método": p.metodo || "QR Code"
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(planilha);
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(wb, ws, "Presenças");
+
+    const nomeArquivo = "presencas_" + EVENTO_NOME
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]/g, "_");
+
+    XLSX.writeFile(wb, `${nomeArquivo}.xlsx`);
+}
+
+function limparValor(valor) {
+    if (valor === undefined || valor === null) return "";
+    return String(valor).trim();
+}
+
+function linhaParaInscrito(linha) {
+    return {
+        evento_id: EVENTO_ID,
+        numero_inscricao: limparValor(linha["Número de Inscrição"]),
+        nome: limparValor(linha["Nome"]),
+        email: limparValor(linha["E-mail"]),
+        cpf: limparValor(linha["Documento"]),
+        ra: limparValor(linha["Número do RA ( conforme carteirinha)"])
+    };
+}
+
+function linhaParaImportado(linha) {
+    return {
+        evento_id: EVENTO_ID,
+
+        "ID": limparValor(linha["ID"]),
+        "Nome": limparValor(linha["Nome"]),
+        "E-mail": limparValor(linha["E-mail"]),
+        "Data Inscrição": limparValor(linha["Data Inscrição"]),
+        "Número de Inscrição": limparValor(linha["Número de Inscrição"]),
+        "Categoria": limparValor(linha["Categoria"]),
+        "Valor da categoria": limparValor(linha["Valor da categoria"]),
+        "Inscrição": limparValor(linha["Inscrição"]),
+        "Complementos": limparValor(linha["Complementos"]),
+        "Documento": limparValor(linha["Documento"]),
+        "TipoDocumento": limparValor(linha["TipoDocumento"]),
+        "Campus USCS": limparValor(linha["Campus USCS"]),
+        "Etapa": limparValor(linha["Etapa"]),
+        "Modalidade": limparValor(linha["Modalidade"]),
+        "Número do RA ( conforme carteirinha)": limparValor(linha["Número do RA ( conforme carteirinha)"])
+    };
+}
+
+async function enviarEmLotes(url, dados, usarUpsert = false) {
+    const tamanhoLote = 500;
+
+    for (let i = 0; i < dados.length; i += tamanhoLote) {
+        const lote = dados.slice(i, i + tamanhoLote);
+
+        const res = await fetch(url, {
+            method: "POST",
+            headers: headers({
+                "Content-Type": "application/json",
+                "Prefer": usarUpsert
+                    ? "resolution=merge-duplicates,return=minimal"
+                    : "return=minimal"
+            }),
+            body: JSON.stringify(lote)
+        });
+
+        if (!res.ok) {
+            const erro = await res.json();
+            throw new Error(erro.message || JSON.stringify(erro));
+        }
+    }
+}
+
+async function importarCSV() {
+    if (!EVENTO_ID) {
+        alert("Selecione um evento antes de importar.");
+        return;
+    }
+
+    const input = document.getElementById("csvInput");
+    const arquivo = input.files[0];
+
+    if (!arquivo) {
+        alert("Selecione um arquivo CSV.");
+        return;
+    }
+
+    Papa.parse(arquivo, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async function(resultado) {
+            try {
+                const linhas = resultado.data;
+
+                if (!linhas.length) {
+                    alert("CSV vazio.");
+                    return;
+                }
+
+                const importados = linhas.map(linhaParaImportado);
+
+                const inscritos = linhas
+                    .map(linhaParaInscrito)
+                    .filter(x => x.numero_inscricao && x.nome);
+
+                if (!inscritos.length) {
+                    alert("Não encontrei colunas obrigatórias: Nome e Número de Inscrição.");
+                    return;
+                }
+
+                await enviarEmLotes(
+                    `${SUPABASE_URL}/rest/v1/inscritos_importados`,
+                    importados,
+                    false
+                );
+
+                await enviarEmLotes(
+                    `${SUPABASE_URL}/rest/v1/inscritos?on_conflict=evento_id,numero_inscricao`,
+                    inscritos,
+                    true
+                );
+
+                alert(`Importação concluída. ${inscritos.length} inscritos processados.`);
+                input.value = "";
+
+            } catch (e) {
+                alert("Erro ao importar: " + e.message);
+            }
+        },
+        error: function(err) {
+            alert("Erro ao ler CSV: " + err.message);
+        }
+    });
+}
+
+async function onScanSuccess(decodedText) {
+    if (processando) return;
+
+    if (!EVENTO_ID) {
+        alert("Selecione um evento primeiro.");
+        return;
+    }
+
+    processando = true;
+    decodedText = decodedText.trim();
+
+    document.getElementById("resultado").innerHTML =
+        "QR lido:<br><strong>" + decodedText + "</strong><br><br>Buscando...";
+
+    try {
+        const inscritos = await buscarInscrito(decodedText);
+
+        if (inscritos.length === 0) {
+            document.getElementById("resultado").innerHTML =
+                `<span class="erro">❌ Não encontrado<br>${decodedText}</span>`;
+
+            tocarSom("erro");
+            setStatus("erro");
+            resetarLeitura();
+            return;
+        }
+
+        const inscrito = inscritos[0];
+        const res = await registrarPresenca(inscrito);
+
+        if (res.ok) {
+            document.getElementById("resultado").innerHTML =
+                `<span class="ok">✔ Presença registrada<br>${inscrito.nome}</span>`;
+
+            tocarSom("ok");
+            setStatus("ok");
+            carregarPresencas();
+
+        } else {
+            const erro = await res.json();
+
+            if (erro.message && erro.message.includes("duplicate key")) {
+                document.getElementById("resultado").innerHTML =
+                    `<span class="erro">⚠️ Presença já registrada<br>${inscrito.nome}</span>`;
+            } else {
+                document.getElementById("resultado").innerHTML =
+                    `<span class="erro">
+                        ⚠️ Erro ao registrar<br>
+                        ${inscrito.nome}<br>
+                        <small>${erro.message || JSON.stringify(erro)}</small>
+                    </span>`;
+            }
+
+            tocarSom("erro");
+            setStatus("erro");
+        }
+
+        resetarLeitura();
+
+    } catch (err) {
+        document.getElementById("resultado").innerHTML =
+            `<span class="erro">❌ Erro ao buscar ou registrar</span>`;
+
+        tocarSom("erro");
+        setStatus("erro");
+        resetarLeitura();
+    }
+}
+
+const html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader",
+    {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        rememberLastUsedCamera: true,
+        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+    },
+    false
+);
+
+html5QrcodeScanner.render(onScanSuccess);
+
+carregarEventos();
+setInterval(carregarPresencas, 5000);
+async function limparEventoAtual() {
+    if (!EVENTO_ID) {
+        alert("Selecione um evento primeiro.");
+        return;
+    }
+
+    const confirmar = prompt(
+        `Para limpar o evento "${EVENTO_NOME}", digite: LIMPAR EVENTO`
+    );
+
+    if (confirmar !== "LIMPAR EVENTO") {
+        alert("Ação cancelada.");
+        return;
+    }
+
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}`, {
+            method: "DELETE",
+            headers: headers()
+        });
+
+        await fetch(`${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}`, {
+            method: "DELETE",
+            headers: headers()
+        });
+
+        await fetch(`${SUPABASE_URL}/rest/v1/inscritos_importados?evento_id=eq.${EVENTO_ID}`, {
+            method: "DELETE",
+            headers: headers()
+        });
+
+        alert("Evento atual limpo com sucesso.");
+        carregarPresencas();
+
+    } catch (e) {
+        alert("Erro ao limpar evento: " + e.message);
+    }
+}
+
+async function resetCompleto() {
+    const senha = prompt("Digite a senha de administrador:");
+
+    if (senha !== SENHA_ADMIN) {
+        alert("Senha incorreta.");
+        return;
+    }
+
+    const confirmar1 = prompt("Essa ação apagará TODOS os dados. Digite: APAGAR TUDO");
+
+    if (confirmar1 !== "APAGAR TUDO") {
+        alert("Ação cancelada.");
+        return;
+    }
+
+    const confirmar2 = prompt("Confirmação final. Digite novamente: APAGAR TUDO");
+
+    if (confirmar2 !== "APAGAR TUDO") {
+        alert("Ação cancelada.");
+        return;
+    }
+
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
+            method: "DELETE",
+            headers: headers()
+        });
+
+        await fetch(`${SUPABASE_URL}/rest/v1/inscritos`, {
+            method: "DELETE",
+            headers: headers()
+        });
+
+        await fetch(`${SUPABASE_URL}/rest/v1/inscritos_importados`, {
+            method: "DELETE",
+            headers: headers()
+        });
+
+        await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+            method: "DELETE",
+            headers: headers()
+        });
+
+        alert("RESET COMPLETO realizado com sucesso.");
+
+        EVENTO_ID = "";
+        EVENTO_NOME = "";
+
+        document.getElementById("listaPresencas").innerHTML = "";
+        document.getElementById("totalPresencas").innerText = "Presenças: 0";
+
+        carregarEventos();
+
+    } catch (e) {
+        alert("Erro no reset completo: " + e.message);
+    }
+}
+
+    
+</script>
+
+</body>
+</html>
