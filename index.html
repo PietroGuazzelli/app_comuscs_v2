@@ -2,6 +2,7 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Check-in COMUSCS</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
@@ -9,15 +10,85 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
+:root {
+    --brand-blue: #0e3a69;
+    --brand-blue-2: #0b2f55;
+    --brand-accent: #0e6cc4;
+}
+
+* {
+    box-sizing: border-box;
+}
+
 body {
     font-family: Arial, sans-serif;
     text-align: center;
-    padding: 20px;
+    margin: 0;
+    padding: 0 20px 20px;
     transition: background-color 0.3s;
 }
 
+.page-wrapper {
+    width: min(1100px, 100%);
+    margin: 0 auto;
+}
+
+.hero {
+    position: relative;
+    margin: 0 -20px 20px;
+    min-height: 240px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    overflow: hidden;
+    padding: 30px 20px;
+    background:
+        linear-gradient(rgba(10, 43, 77, 0.88), rgba(10, 43, 77, 0.88)),
+        url("IMAGEM EVEN3 OFICIAL.jpeg")
+            center/cover no-repeat;
+}
+
+.hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 40%, rgba(14, 108, 196, 0.5) 100%);
+    pointer-events: none;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 700px;
+}
+
+.hero-kicker {
+    margin: 0;
+    font-size: clamp(14px, 2vw, 24px);
+}
+
+.hero-title {
+    margin: 10px 0;
+    font-size: clamp(38px, 8vw, 78px);
+    font-weight: 700;
+    line-height: 1;
+}
+
+.hero-date {
+    display: inline-block;
+    margin: 0;
+    padding: 8px 16px;
+    border-radius: 999px;
+    color: #0a2b4d;
+    background: rgba(255, 255, 255, 0.92);
+    font-size: clamp(16px, 2.4vw, 32px);
+    font-weight: 700;
+}
+
 #reader {
-    width: 320px;
+    width: min(360px, 100%);
     margin: auto;
 }
 
@@ -49,6 +120,7 @@ body.erro-bg {
 }
 
 table {
+    width: 100%;
     border-collapse: collapse;
     margin-top: 15px;
     font-size: 14px;
@@ -74,11 +146,46 @@ button, select, input {
     margin-top: 15px;
     border-radius: 8px;
 }
+
+@media (max-width: 768px) {
+    body {
+        padding: 0 12px 12px;
+    }
+
+    .hero {
+        margin: 0 -12px 16px;
+        min-height: 200px;
+        padding: 24px 14px;
+    }
+
+    .result {
+        font-size: 18px;
+    }
+
+    button, select, input {
+        width: 100%;
+        max-width: 100%;
+        margin: 6px 0;
+    }
+
+    th, td {
+        padding: 6px;
+        font-size: 12px;
+    }
+}
 </style>
 </head>
 
 <body>
+<section class="hero" aria-label="Capa do congresso COMUSCS">
+  <div class="hero-content">
+    <p class="hero-kicker">11ª Edição do Congresso Médico Universitário de São Caetano do Sul</p>
+    <h1 class="hero-title">XICOMUSCS</h1>
+    <p class="hero-date">7, 8 e 9 de outubro de 2026</p>
+  </div>
+</section>
 
+<main class="page-wrapper">
 <h2>Check-in COMUSCS</h2>
 
 <label>Evento:</label>
@@ -130,9 +237,6 @@ button, select, input {
   <hr>
 
   <button onclick="exportarExcel()">Exportar presenças em Excel</button>
-    <button onclick="exportarExcel()">
-    Exportar presenças em Excel
-</button>
 
 <hr>
 
@@ -147,6 +251,7 @@ button, select, input {
 </button>
 
 </div>
+</main>
 
 <script>
 const SUPABASE_URL = "https://goytizsanwooamfjtvqk.supabase.co";
@@ -261,40 +366,71 @@ async function criarEvento() {
     });
 
     if (!res.ok) {
-        const erro = await res.json();
-        alert("Erro ao criar evento: " + (erro.message || JSON.stringify(erro)));
+        const erro = await res.text();
+        alert("Erro ao criar evento:\n" + erro);
         return;
     }
 
-    alert("Evento criado.");
     document.getElementById("novoEventoNome").value = "";
     document.getElementById("novoEventoData").value = "";
-    await carregarEventos();
+    alert("Evento criado com sucesso!");
+    carregarEventos();
 }
 
-async function buscarInscrito(numero) {
-    numero = numero.trim();
+async function importarCSV() {
+    if (!EVENTO_ID) {
+        alert("Selecione um evento primeiro.");
+        return;
+    }
 
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${encodeURIComponent(numero)}`,
-        { headers: headers() }
-    );
+    const fileInput = document.getElementById("csvInput");
+    const file = fileInput.files[0];
 
-    return await res.json();
-}
+    if (!file) {
+        alert("Selecione um arquivo CSV.");
+        return;
+    }
 
-async function registrarPresenca(inscrito) {
-    return await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
-        method: "POST",
-        headers: headers({
-            "Content-Type": "application/json"
-        }),
-        body: JSON.stringify({
-            evento_id: EVENTO_ID,
-            inscrito_id: inscrito.id,
-            numero_inscricao: inscrito.numero_inscricao,
-            metodo: "QR Code"
-        })
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async function(results) {
+            const rows = results.data;
+
+            if (!rows.length) {
+                alert("CSV vazio.");
+                return;
+            }
+
+            const payload = rows.map(r => ({
+                evento_id: EVENTO_ID,
+                nome: r.nome || r.Nome || r.NOME || "",
+                numero_inscricao: r.numero_inscricao || r["Nº Inscrição"] || r["n_inscricao"] || r["inscricao"] || ""
+            })).filter(p => p.nome && p.numero_inscricao);
+
+            if (!payload.length) {
+                alert("Nenhum registro válido encontrado no CSV.");
+                return;
+            }
+
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/inscritos`, {
+                method: "POST",
+                headers: headers({
+                    "Content-Type": "application/json",
+                    "Prefer": "resolution=merge-duplicates"
+                }),
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const erro = await res.text();
+                alert("Erro ao importar CSV:\n" + erro);
+                return;
+            }
+
+            alert(`Importação concluída: ${payload.length} inscritos.`);
+            fileInput.value = "";
+        }
     });
 }
 
@@ -302,365 +438,188 @@ async function carregarPresencas() {
     if (!EVENTO_ID) return;
 
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,horario_checkin,inscritos(nome)&order=horario_checkin.desc`,
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=nome,numero_inscricao,horario&order=horario.desc`,
         { headers: headers() }
     );
 
     const dados = await res.json();
+    const tbody = document.getElementById("listaPresencas");
+    tbody.innerHTML = "";
 
-    document.getElementById("totalPresencas").innerText =
-        "Presenças: " + dados.length;
-
-    document.getElementById("listaPresencas").innerHTML = dados.map(p => `
-        <tr>
-            <td>${p.inscritos?.nome || "-"}</td>
-            <td>${p.numero_inscricao}</td>
-            <td>${new Date(p.horario_checkin).toLocaleString("pt-BR")}</td>
-        </tr>
-    `).join("");
-}
-
-async function exportarExcel() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento.");
-        return;
-    }
-
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,horario_checkin,metodo,inscritos(nome,email,ra,cpf)&order=horario_checkin.asc`,
-        { headers: headers() }
-    );
-
-    const dados = await res.json();
-
-    const planilha = dados.map(p => ({
-        "Nome": p.inscritos?.nome || "",
-        "Número de Inscrição": p.numero_inscricao || "",
-        "E-mail": p.inscritos?.email || "",
-        "RA": p.inscritos?.ra || "",
-        "Documento/CPF": p.inscritos?.cpf || "",
-        "Horário do Check-in": new Date(p.horario_checkin).toLocaleString("pt-BR"),
-        "Método": p.metodo || "QR Code"
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(planilha);
-    const wb = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(wb, ws, "Presenças");
-
-    const nomeArquivo = "presencas_" + EVENTO_NOME
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-zA-Z0-9]/g, "_");
-
-    XLSX.writeFile(wb, `${nomeArquivo}.xlsx`);
-}
-
-function limparValor(valor) {
-    if (valor === undefined || valor === null) return "";
-    return String(valor).trim();
-}
-
-function linhaParaInscrito(linha) {
-    return {
-        evento_id: EVENTO_ID,
-        numero_inscricao: limparValor(linha["Número de Inscrição"]),
-        nome: limparValor(linha["Nome"]),
-        email: limparValor(linha["E-mail"]),
-        cpf: limparValor(linha["Documento"]),
-        ra: limparValor(linha["Número do RA ( conforme carteirinha)"])
-    };
-}
-
-function linhaParaImportado(linha) {
-    return {
-        evento_id: EVENTO_ID,
-
-        "ID": limparValor(linha["ID"]),
-        "Nome": limparValor(linha["Nome"]),
-        "E-mail": limparValor(linha["E-mail"]),
-        "Data Inscrição": limparValor(linha["Data Inscrição"]),
-        "Número de Inscrição": limparValor(linha["Número de Inscrição"]),
-        "Categoria": limparValor(linha["Categoria"]),
-        "Valor da categoria": limparValor(linha["Valor da categoria"]),
-        "Inscrição": limparValor(linha["Inscrição"]),
-        "Complementos": limparValor(linha["Complementos"]),
-        "Documento": limparValor(linha["Documento"]),
-        "TipoDocumento": limparValor(linha["TipoDocumento"]),
-        "Campus USCS": limparValor(linha["Campus USCS"]),
-        "Etapa": limparValor(linha["Etapa"]),
-        "Modalidade": limparValor(linha["Modalidade"]),
-        "Número do RA ( conforme carteirinha)": limparValor(linha["Número do RA ( conforme carteirinha)"])
-    };
-}
-
-async function enviarEmLotes(url, dados, usarUpsert = false) {
-    const tamanhoLote = 500;
-
-    for (let i = 0; i < dados.length; i += tamanhoLote) {
-        const lote = dados.slice(i, i + tamanhoLote);
-
-        const res = await fetch(url, {
-            method: "POST",
-            headers: headers({
-                "Content-Type": "application/json",
-                "Prefer": usarUpsert
-                    ? "resolution=merge-duplicates,return=minimal"
-                    : "return=minimal"
-            }),
-            body: JSON.stringify(lote)
-        });
-
-        if (!res.ok) {
-            const erro = await res.json();
-            throw new Error(erro.message || JSON.stringify(erro));
-        }
-    }
-}
-
-async function importarCSV() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento antes de importar.");
-        return;
-    }
-
-    const input = document.getElementById("csvInput");
-    const arquivo = input.files[0];
-
-    if (!arquivo) {
-        alert("Selecione um arquivo CSV.");
-        return;
-    }
-
-    Papa.parse(arquivo, {
-        header: true,
-        skipEmptyLines: true,
-        complete: async function(resultado) {
-            try {
-                const linhas = resultado.data;
-
-                if (!linhas.length) {
-                    alert("CSV vazio.");
-                    return;
-                }
-
-                const importados = linhas.map(linhaParaImportado);
-
-                const inscritos = linhas
-                    .map(linhaParaInscrito)
-                    .filter(x => x.numero_inscricao && x.nome);
-
-                if (!inscritos.length) {
-                    alert("Não encontrei colunas obrigatórias: Nome e Número de Inscrição.");
-                    return;
-                }
-
-                await enviarEmLotes(
-                    `${SUPABASE_URL}/rest/v1/inscritos_importados`,
-                    importados,
-                    false
-                );
-
-                await enviarEmLotes(
-                    `${SUPABASE_URL}/rest/v1/inscritos?on_conflict=evento_id,numero_inscricao`,
-                    inscritos,
-                    true
-                );
-
-                alert(`Importação concluída. ${inscritos.length} inscritos processados.`);
-                input.value = "";
-
-            } catch (e) {
-                alert("Erro ao importar: " + e.message);
-            }
-        },
-        error: function(err) {
-            alert("Erro ao ler CSV: " + err.message);
-        }
+    dados.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${item.nome}</td>
+            <td>${item.numero_inscricao}</td>
+            <td>${new Date(item.horario).toLocaleTimeString()}</td>
+        `;
+        tbody.appendChild(tr);
     });
+
+    document.getElementById("totalPresencas").innerText = `Presenças: ${dados.length}`;
 }
 
-async function onScanSuccess(decodedText) {
+async function registrarPresenca(qrCodeMessage) {
     if (processando) return;
+    processando = true;
 
     if (!EVENTO_ID) {
-        alert("Selecione um evento primeiro.");
-        return;
-    }
-
-    processando = true;
-    decodedText = decodedText.trim();
-
-    document.getElementById("resultado").innerHTML =
-        "QR lido:<br><strong>" + decodedText + "</strong><br><br>Buscando...";
-
-    try {
-        const inscritos = await buscarInscrito(decodedText);
-
-        if (inscritos.length === 0) {
-            document.getElementById("resultado").innerHTML =
-                `<span class="erro">❌ Não encontrado<br>${decodedText}</span>`;
-
-            tocarSom("erro");
-            setStatus("erro");
-            resetarLeitura();
-            return;
-        }
-
-        const inscrito = inscritos[0];
-        const res = await registrarPresenca(inscrito);
-
-        if (res.ok) {
-            document.getElementById("resultado").innerHTML =
-                `<span class="ok">✔ Presença registrada<br>${inscrito.nome}</span>`;
-
-            tocarSom("ok");
-            setStatus("ok");
-            carregarPresencas();
-
-        } else {
-            const erro = await res.json();
-
-            if (erro.message && erro.message.includes("duplicate key")) {
-                document.getElementById("resultado").innerHTML =
-                    `<span class="erro">⚠️ Presença já registrada<br>${inscrito.nome}</span>`;
-            } else {
-                document.getElementById("resultado").innerHTML =
-                    `<span class="erro">
-                        ⚠️ Erro ao registrar<br>
-                        ${inscrito.nome}<br>
-                        <small>${erro.message || JSON.stringify(erro)}</small>
-                    </span>`;
-            }
-
-            tocarSom("erro");
-            setStatus("erro");
-        }
-
-        resetarLeitura();
-
-    } catch (err) {
-        document.getElementById("resultado").innerHTML =
-            `<span class="erro">❌ Erro ao buscar ou registrar</span>`;
-
+        document.getElementById("resultado").innerHTML = `<span class="erro">Selecione um evento primeiro.</span>`;
         tocarSom("erro");
         setStatus("erro");
         resetarLeitura();
+        return;
     }
+
+    let numeroInscricao = qrCodeMessage.trim();
+
+    const resInscrito = await fetch(
+        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=nome,numero_inscricao`,
+        { headers: headers() }
+    );
+
+    const inscritos = await resInscrito.json();
+
+    if (!inscritos.length) {
+        document.getElementById("resultado").innerHTML = `<span class="erro">Inscrição não encontrada.</span>`;
+        tocarSom("erro");
+        setStatus("erro");
+        resetarLeitura();
+        return;
+    }
+
+    const inscrito = inscritos[0];
+
+    const resCheck = await fetch(
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=id`,
+        { headers: headers() }
+    );
+
+    const jaExiste = await resCheck.json();
+
+    if (jaExiste.length) {
+        document.getElementById("resultado").innerHTML = `<span class="erro">Presença já registrada.</span>`;
+        tocarSom("erro");
+        setStatus("erro");
+        resetarLeitura();
+        return;
+    }
+
+    const resInsert = await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
+        method: "POST",
+        headers: headers({
+            "Content-Type": "application/json"
+        }),
+        body: JSON.stringify({
+            evento_id: EVENTO_ID,
+            nome: inscrito.nome,
+            numero_inscricao: inscrito.numero_inscricao
+        })
+    });
+
+    if (!resInsert.ok) {
+        const erro = await resInsert.text();
+        document.getElementById("resultado").innerHTML = `<span class="erro">Erro ao registrar: ${erro}</span>`;
+        tocarSom("erro");
+        setStatus("erro");
+        resetarLeitura();
+        return;
+    }
+
+    document.getElementById("resultado").innerHTML = `<span class="ok">✅ ${inscrito.nome} registrado com sucesso!</span>`;
+    tocarSom("ok");
+    setStatus("ok");
+    carregarPresencas();
+    resetarLeitura();
 }
 
-const html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader",
-    {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        rememberLastUsedCamera: true,
-        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-    },
-    false
-);
+function exportarExcel() {
+    const tabela = document.getElementById("listaPresencas");
+    const linhas = Array.from(tabela.querySelectorAll("tr")).map(tr => {
+        const tds = tr.querySelectorAll("td");
+        return {
+            Nome: tds[0]?.innerText || "",
+            Inscricao: tds[1]?.innerText || "",
+            Horario: tds[2]?.innerText || ""
+        };
+    });
 
-html5QrcodeScanner.render(onScanSuccess);
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Presencas");
+    XLSX.writeFile(wb, `presencas_${EVENTO_NOME || "evento"}.xlsx`);
+}
 
-carregarEventos();
-setInterval(carregarPresencas, 5000);
 async function limparEventoAtual() {
     if (!EVENTO_ID) {
         alert("Selecione um evento primeiro.");
         return;
     }
 
-    const confirmar = prompt(
-        `Para limpar o evento "${EVENTO_NOME}", digite: LIMPAR EVENTO`
-    );
+    const confirmar = confirm(`Tem certeza que deseja limpar TODOS os dados do evento "${EVENTO_NOME}"?`);
+    if (!confirmar) return;
 
-    if (confirmar !== "LIMPAR EVENTO") {
-        alert("Ação cancelada.");
-        return;
-    }
+    const r1 = await fetch(`${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}`, {
+        method: "DELETE",
+        headers: headers()
+    });
 
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}`, {
-            method: "DELETE",
-            headers: headers()
-        });
+    const r2 = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}`, {
+        method: "DELETE",
+        headers: headers()
+    });
 
-        await fetch(`${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}`, {
-            method: "DELETE",
-            headers: headers()
-        });
-
-        await fetch(`${SUPABASE_URL}/rest/v1/inscritos_importados?evento_id=eq.${EVENTO_ID}`, {
-            method: "DELETE",
-            headers: headers()
-        });
-
-        alert("Evento atual limpo com sucesso.");
+    if (r1.ok && r2.ok) {
+        alert("Evento limpo com sucesso.");
         carregarPresencas();
-
-    } catch (e) {
-        alert("Erro ao limpar evento: " + e.message);
+    } else {
+        alert("Erro ao limpar evento.");
     }
 }
 
 async function resetCompleto() {
-    const senha = prompt("Digite a senha de administrador:");
-
-    if (senha !== SENHA_ADMIN) {
+    const senha = prompt("Digite a senha master para reset completo:");
+    if (senha !== "reset2026") {
         alert("Senha incorreta.");
         return;
     }
 
-    const confirmar1 = prompt("Essa ação apagará TODOS os dados. Digite: APAGAR TUDO");
+    const confirmar = confirm("ATENÇÃO: Isso vai apagar TODOS os eventos, inscritos e presenças. Continuar?");
+    if (!confirmar) return;
 
-    if (confirmar1 !== "APAGAR TUDO") {
-        alert("Ação cancelada.");
-        return;
-    }
+    const a = await fetch(`${SUPABASE_URL}/rest/v1/presencas`, { method: "DELETE", headers: headers() });
+    const b = await fetch(`${SUPABASE_URL}/rest/v1/inscritos`, { method: "DELETE", headers: headers() });
+    const c = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, { method: "DELETE", headers: headers() });
 
-    const confirmar2 = prompt("Confirmação final. Digite novamente: APAGAR TUDO");
-
-    if (confirmar2 !== "APAGAR TUDO") {
-        alert("Ação cancelada.");
-        return;
-    }
-
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
-            method: "DELETE",
-            headers: headers()
-        });
-
-        await fetch(`${SUPABASE_URL}/rest/v1/inscritos`, {
-            method: "DELETE",
-            headers: headers()
-        });
-
-        await fetch(`${SUPABASE_URL}/rest/v1/inscritos_importados`, {
-            method: "DELETE",
-            headers: headers()
-        });
-
-        await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
-            method: "DELETE",
-            headers: headers()
-        });
-
-        alert("RESET COMPLETO realizado com sucesso.");
-
-        EVENTO_ID = "";
-        EVENTO_NOME = "";
-
+    if (a.ok && b.ok && c.ok) {
+        alert("RESET COMPLETO realizado.");
         document.getElementById("listaPresencas").innerHTML = "";
         document.getElementById("totalPresencas").innerText = "Presenças: 0";
-
-        carregarEventos();
-
-    } catch (e) {
-        alert("Erro no reset completo: " + e.message);
+        document.getElementById("eventoSelect").innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
+        EVENTO_ID = "";
+        EVENTO_NOME = "";
+    } else {
+        alert("Erro no reset completo.");
     }
 }
 
-    
+const html5QrCode = new Html5Qrcode("reader");
+
+Html5Qrcode.getCameras().then(cameras => {
+    if (cameras && cameras.length) {
+        const cameraId = cameras[0].id;
+        html5QrCode.start(
+            cameraId,
+            { fps: 10, qrbox: 250 },
+            qrCodeMessage => registrarPresenca(qrCodeMessage),
+            errorMessage => {}
+        );
+    }
+}).catch(err => {
+    alert("Erro ao acessar câmera: " + err);
+});
+
+carregarEventos();
 </script>
 
 </body>
