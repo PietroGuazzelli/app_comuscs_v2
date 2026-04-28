@@ -529,10 +529,11 @@ async function registrarPresenca(qrCodeMessage) {
             "Content-Type": "application/json"
         }),
         body: JSON.stringify({
-            evento_id: EVENTO_ID,
-            nome: inscrito.nome,
-            numero_inscricao: inscrito.numero_inscricao
-        })
+    evento_id: EVENTO_ID,
+    inscrito_id: inscrito.id,
+    numero_inscricao: inscrito.numero_inscricao,
+    metodo: "qr"
+})
     });
 
     if (!resInsert.ok) {
