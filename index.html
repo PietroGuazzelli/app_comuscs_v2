@@ -394,6 +394,8 @@ async function importarCSV() {
     Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
+        delimiter: ";", // 👈 resolve CSV do Excel/Even3
+
         complete: async function(results) {
             const rows = results.data;
 
@@ -404,11 +406,27 @@ async function importarCSV() {
 
             const payload = rows.map(r => ({
                 evento_id: EVENTO_ID,
-                nome: r.nome || r.Nome || r.NOME || "",
-                numero_inscricao: r.numero_inscricao || r["Nº Inscrição"] || r["n_inscricao"] || r["inscricao"] || ""
+
+                nome:
+                    r.nome ||
+                    r.Nome ||
+                    r.NOME ||
+                    r["Nome Completo"] ||
+                    r["Participante"] ||
+                    "",
+
+                numero_inscricao:
+                    r.numero_inscricao ||
+                    r["Número de Inscrição"] || // 👈 EVEN3 (ESSENCIAL)
+                    r["Nº Inscrição"] ||
+                    r["n_inscricao"] ||
+                    r["inscricao"] ||
+                    r["ID"] ||
+                    ""
             })).filter(p => p.nome && p.numero_inscricao);
 
             if (!payload.length) {
+                console.log("DEBUG CSV:", rows); // 👈 ajuda se der erro de novo
                 alert("Nenhum registro válido encontrado no CSV.");
                 return;
             }
