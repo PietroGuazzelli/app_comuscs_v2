@@ -46,8 +46,7 @@ body {
     padding: 30px 20px;
     background:
         linear-gradient(rgba(10, 43, 77, 0.88), rgba(10, 43, 77, 0.88)),
-        url("IMAGEM EVEN3 OFICIAL.jpeg")
-            center/cover no-repeat;
+        url("IMAGEM EVEN3 OFICIAL.jpeg") center/cover no-repeat;
 }
 
 .hero::after {
@@ -204,7 +203,7 @@ button, select, input {
 
 <h3 id="totalPresencas">Presenças: 0</h3>
 
-<table width="100%">
+<table>
   <thead>
     <tr>
       <th>Nome</th>
@@ -230,7 +229,7 @@ button, select, input {
   <hr>
 
   <h4>Importar lista padrão CSV</h4>
-  <p>Use o CSV original exportado do sistema, sem renomear colunas.</p>
+  <p>Use o CSV original exportado do Even3, sem renomear colunas.</p>
   <input type="file" id="csvInput" accept=".csv">
   <button onclick="importarCSV()">Importar lista para o evento selecionado</button>
 
@@ -238,18 +237,17 @@ button, select, input {
 
   <button onclick="exportarExcel()">Exportar presenças em Excel</button>
 
-<hr>
+  <hr>
 
-<h4>Zona de risco</h4>
+  <h4>Zona de risco</h4>
 
-<button onclick="limparEventoAtual()" style="background:#ffc107;">
-  Limpar evento atual
-</button>
+  <button onclick="limparEventoAtual()" style="background:#ffc107;">
+    Limpar evento atual
+  </button>
 
-<button onclick="resetCompleto()" style="background:#dc3545; color:white;">
-  RESET COMPLETO
-</button>
-
+  <button onclick="resetCompleto()" style="background:#dc3545; color:white;">
+    RESET COMPLETO
+  </button>
 </div>
 </main>
 
@@ -321,6 +319,8 @@ async function carregarEventos() {
 
     if (!eventos.length) {
         select.innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
+        EVENTO_ID = "";
+        EVENTO_NOME = "";
         return;
     }
 
@@ -377,6 +377,31 @@ async function criarEvento() {
     carregarEventos();
 }
 
+function normalizarTexto(valor) {
+    return String(valor || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+}
+
+function obterCampo(row, possibilidades) {
+    const mapa = {};
+
+    Object.keys(row).forEach(chave => {
+        mapa[normalizarTexto(chave)] = row[chave];
+    });
+
+    for (const nome of possibilidades) {
+        const valor = mapa[normalizarTexto(nome)];
+        if (valor !== undefined && String(valor).trim() !== "") {
+            return String(valor).trim();
+        }
+    }
+
+    return "";
+}
+
 async function importarCSV() {
     if (!EVENTO_ID) {
         alert("Selecione um evento primeiro.");
@@ -394,7 +419,7 @@ async function importarCSV() {
     Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        delimiter: ";", // 👈 resolve CSV do Excel/Even3
+        delimiter: ";",
 
         complete: async function(results) {
             const rows = results.data;
@@ -404,29 +429,35 @@ async function importarCSV() {
                 return;
             }
 
-            const payload = rows.map(r => ({
-                evento_id: EVENTO_ID,
+            const payload = rows.map(r => {
+                const nome = obterCampo(r, [
+                    "Nome",
+                    "nome",
+                    "NOME",
+                    "Nome Completo",
+                    "Participante"
+                ]);
 
-                nome:
-                    r.nome ||
-                    r.Nome ||
-                    r.NOME ||
-                    r["Nome Completo"] ||
-                    r["Participante"] ||
-                    "",
+                const numeroInscricao = obterCampo(r, [
+                    "Número de Inscrição",
+                    "Numero de Inscricao",
+                    "Nº Inscrição",
+                    "N Inscrição",
+                    "Inscrição",
+                    "inscricao",
+                    "numero_inscricao",
+                    "ID"
+                ]);
 
-                numero_inscricao:
-                    r.numero_inscricao ||
-                    r["Número de Inscrição"] || // 👈 EVEN3 (ESSENCIAL)
-                    r["Nº Inscrição"] ||
-                    r["n_inscricao"] ||
-                    r["inscricao"] ||
-                    r["ID"] ||
-                    ""
-            })).filter(p => p.nome && p.numero_inscricao);
+                return {
+                    evento_id: EVENTO_ID,
+                    nome: nome,
+                    numero_inscricao: numeroInscricao
+                };
+            }).filter(p => p.nome && p.numero_inscricao);
 
             if (!payload.length) {
-                console.log("DEBUG CSV:", rows); // 👈 ajuda se der erro de novo
+                console.log("DEBUG CSV:", rows);
                 alert("Nenhum registro válido encontrado no CSV.");
                 return;
             }
@@ -446,7 +477,7 @@ async function importarCSV() {
                 return;
             }
 
-            alert(`Importação concluída: ${payload.length} inscritos.`);
+            alert(`Importação concluída: ${payload.length} inscritos vinculados ao evento "${EVENTO_NOME}".`);
             fileInput.value = "";
         }
     });
@@ -456,9 +487,15 @@ async function carregarPresencas() {
     if (!EVENTO_ID) return;
 
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=nome,numero_inscricao,horario&order=horario.desc`,
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,horario_checkin,inscritos(nome)&order=horario_checkin.desc`,
         { headers: headers() }
     );
+
+    if (!res.ok) {
+        const erro = await res.text();
+        console.error("Erro ao carregar presenças:", erro);
+        return;
+    }
 
     const dados = await res.json();
     const tbody = document.getElementById("listaPresencas");
@@ -467,9 +504,9 @@ async function carregarPresencas() {
     dados.forEach(item => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-            <td>${item.nome}</td>
-            <td>${item.numero_inscricao}</td>
-            <td>${new Date(item.horario).toLocaleTimeString()}</td>
+            <td>${item.inscritos?.nome || ""}</td>
+            <td>${item.numero_inscricao || ""}</td>
+            <td>${item.horario_checkin ? new Date(item.horario_checkin).toLocaleTimeString() : ""}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -492,14 +529,23 @@ async function registrarPresenca(qrCodeMessage) {
     let numeroInscricao = qrCodeMessage.trim();
 
     const resInscrito = await fetch(
-        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=nome,numero_inscricao`,
+        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=id,nome,numero_inscricao`,
         { headers: headers() }
     );
+
+    if (!resInscrito.ok) {
+        const erro = await resInscrito.text();
+        document.getElementById("resultado").innerHTML = `<span class="erro">Erro ao buscar inscrito: ${erro}</span>`;
+        tocarSom("erro");
+        setStatus("erro");
+        resetarLeitura();
+        return;
+    }
 
     const inscritos = await resInscrito.json();
 
     if (!inscritos.length) {
-        document.getElementById("resultado").innerHTML = `<span class="erro">Inscrição não encontrada.</span>`;
+        document.getElementById("resultado").innerHTML = `<span class="erro">Inscrição não encontrada neste evento.</span>`;
         tocarSom("erro");
         setStatus("erro");
         resetarLeitura();
@@ -512,6 +558,15 @@ async function registrarPresenca(qrCodeMessage) {
         `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=id`,
         { headers: headers() }
     );
+
+    if (!resCheck.ok) {
+        const erro = await resCheck.text();
+        document.getElementById("resultado").innerHTML = `<span class="erro">Erro ao verificar presença: ${erro}</span>`;
+        tocarSom("erro");
+        setStatus("erro");
+        resetarLeitura();
+        return;
+    }
 
     const jaExiste = await resCheck.json();
 
@@ -529,11 +584,11 @@ async function registrarPresenca(qrCodeMessage) {
             "Content-Type": "application/json"
         }),
         body: JSON.stringify({
-    evento_id: EVENTO_ID,
-    inscrito_id: inscrito.id,
-    numero_inscricao: inscrito.numero_inscricao,
-    metodo: "qr"
-})
+            evento_id: EVENTO_ID,
+            inscrito_id: inscrito.id,
+            numero_inscricao: inscrito.numero_inscricao,
+            metodo: "qr"
+        })
     });
 
     if (!resInsert.ok) {
