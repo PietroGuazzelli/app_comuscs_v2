@@ -125,9 +125,11 @@ body {
 
 .ok { color: green; font-weight: bold; }
 .erro { color: red; font-weight: bold; }
+.aviso { color: #b7791f; font-weight: bold; }
 
 body.ok-bg { background-color: #d4edda; }
 body.erro-bg { background-color: #f8d7da; }
+body.aviso-bg { background-color: #fff3cd; }
 
 #resultado { transition: opacity 0.3s; }
 
@@ -260,6 +262,22 @@ button, select, input {
 
 <hr>
 
+<h3>Movimentações recentes</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Nome</th>
+      <th>Nº Inscrição</th>
+      <th>Movimento</th>
+      <th>Horário</th>
+    </tr>
+  </thead>
+  <tbody id="listaMovimentacoes"></tbody>
+</table>
+
+<hr>
+
 <button onclick="abrirAdmin()">Área do administrador</button>
 
 <div id="adminArea" style="display:none;" class="admin-box">
@@ -285,6 +303,7 @@ button, select, input {
   <hr>
 
   <button onclick="exportarExcel()">Exportar presenças em Excel</button>
+  <button onclick="exportarMovimentacoesExcel()">Exportar movimentações em Excel</button>
 
   <hr>
 
@@ -347,10 +366,11 @@ function tocarSom(tipo) {
 }
 
 function setStatus(tipo) {
-    document.body.classList.remove("ok-bg", "erro-bg");
+    document.body.classList.remove("ok-bg", "erro-bg", "aviso-bg");
 
     if (tipo === "ok") document.body.classList.add("ok-bg");
     if (tipo === "erro") document.body.classList.add("erro-bg");
+    if (tipo === "aviso") document.body.classList.add("aviso-bg");
 }
 
 function resetarLeitura() {
@@ -360,7 +380,7 @@ function resetarLeitura() {
         setTimeout(() => {
             document.getElementById("resultado").innerHTML = "";
             document.getElementById("resultado").style.opacity = "1";
-            document.body.classList.remove("ok-bg", "erro-bg");
+            document.body.classList.remove("ok-bg", "erro-bg", "aviso-bg");
             processando = false;
         }, 300);
     }, 2500);
@@ -488,6 +508,7 @@ async function carregarEventos() {
 
     await atualizarDashboard();
     await carregarPresencas();
+    await carregarMovimentacoes();
 }
 
 function trocarEvento() {
@@ -497,6 +518,7 @@ function trocarEvento() {
 
     atualizarDashboard();
     carregarPresencas();
+    carregarMovimentacoes();
 }
 
 function limparTelaEvento() {
@@ -504,6 +526,7 @@ function limparTelaEvento() {
     document.getElementById("dashboardPresencas").innerText = "0";
     document.getElementById("dashboardPendentes").innerText = "0";
     document.getElementById("listaPresencas").innerHTML = "";
+    document.getElementById("listaMovimentacoes").innerHTML = "";
     document.getElementById("totalPresencas").innerText = "Presenças: 0";
 }
 
@@ -766,6 +789,75 @@ async function carregarPresencas() {
     document.getElementById("totalPresencas").innerText = `Presenças: ${dados.length}`;
 }
 
+async function carregarMovimentacoes() {
+    if (!EVENTO_ID) return;
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,tipo_movimento,horario,inscritos(nome)&order=horario.desc&limit=30`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        console.error("Erro ao carregar movimentações:", await res.text());
+        return;
+    }
+
+    const dados = await res.json();
+    const tbody = document.getElementById("listaMovimentacoes");
+    tbody.innerHTML = "";
+
+    dados.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${item.inscritos?.nome || ""}</td>
+            <td>${item.numero_inscricao || ""}</td>
+            <td>${formatarMovimento(item.tipo_movimento)}</td>
+            <td>${item.horario ? new Date(item.horario).toLocaleString("pt-BR") : ""}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function formatarMovimento(tipo) {
+    if (tipo === "entrada") return "Entrada";
+    if (tipo === "saida") return "Saída";
+    if (tipo === "retorno") return "Retorno";
+    return tipo || "";
+}
+
+async function buscarUltimoMovimento(inscritoId) {
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}&inscrito_id=eq.${inscritoId}&select=tipo_movimento,horario&order=horario.desc&limit=1`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        throw new Error(await res.text());
+    }
+
+    const dados = await res.json();
+    return dados[0] || null;
+}
+
+async function inserirMovimento(inscrito, tipo) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca`, {
+        method: "POST",
+        headers: headers({
+            "Content-Type": "application/json"
+        }),
+        body: JSON.stringify({
+            evento_id: EVENTO_ID,
+            inscrito_id: inscrito.id,
+            numero_inscricao: inscrito.numero_inscricao,
+            tipo_movimento: tipo
+        })
+    });
+
+    if (!res.ok) {
+        throw new Error(await res.text());
+    }
+}
+
 async function registrarPresenca(qrCodeMessage) {
     if (processando) return;
     processando = true;
@@ -806,59 +898,84 @@ async function registrarPresenca(qrCodeMessage) {
 
     const inscrito = inscritos[0];
 
-    const resCheck = await fetch(
-        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=id`,
-        { headers: headers() }
-    );
+    try {
+        const resCheck = await fetch(
+            `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=id`,
+            { headers: headers() }
+        );
 
-    if (!resCheck.ok) {
-        const erro = await resCheck.text();
-        document.getElementById("resultado").innerHTML = `<span class="erro">Erro ao verificar presença: ${erro}</span>`;
+        if (!resCheck.ok) {
+            throw new Error(await resCheck.text());
+        }
+
+        const jaExiste = await resCheck.json();
+
+        if (!jaExiste.length) {
+            const resInsert = await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
+                method: "POST",
+                headers: headers({
+                    "Content-Type": "application/json"
+                }),
+                body: JSON.stringify({
+                    evento_id: EVENTO_ID,
+                    inscrito_id: inscrito.id,
+                    numero_inscricao: inscrito.numero_inscricao,
+                    metodo: "qr"
+                })
+            });
+
+            if (!resInsert.ok) {
+                throw new Error(await resInsert.text());
+            }
+
+            await inserirMovimento(inscrito, "entrada");
+
+            document.getElementById("resultado").innerHTML = `<span class="ok">✅ ${inscrito.nome} registrado com sucesso! Entrada registrada.</span>`;
+            tocarSom("ok");
+            setStatus("ok");
+
+        } else {
+            const ultimo = await buscarUltimoMovimento(inscrito.id);
+
+            if (!ultimo || ultimo.tipo_movimento === "saida") {
+                const confirmarRetorno = confirm(`${inscrito.nome} já possui presença registrada.\n\nDeseja registrar RETORNO agora?`);
+
+                if (confirmarRetorno) {
+                    await inserirMovimento(inscrito, "retorno");
+                    document.getElementById("resultado").innerHTML = `<span class="ok">✅ Retorno registrado: ${inscrito.nome}</span>`;
+                    tocarSom("ok");
+                    setStatus("ok");
+                } else {
+                    document.getElementById("resultado").innerHTML = `<span class="aviso">Leitura cancelada.</span>`;
+                    setStatus("aviso");
+                }
+
+            } else {
+                const confirmarSaida = confirm(`${inscrito.nome} já está registrado e consta como dentro do evento.\n\nDeseja registrar SAÍDA agora?`);
+
+                if (confirmarSaida) {
+                    await inserirMovimento(inscrito, "saida");
+                    document.getElementById("resultado").innerHTML = `<span class="ok">✅ Saída registrada: ${inscrito.nome}</span>`;
+                    tocarSom("ok");
+                    setStatus("ok");
+                } else {
+                    document.getElementById("resultado").innerHTML = `<span class="aviso">Leitura cancelada.</span>`;
+                    setStatus("aviso");
+                }
+            }
+        }
+
+        carregarPresencas();
+        carregarMovimentacoes();
+        atualizarDashboard();
+        resetarLeitura();
+
+    } catch (err) {
+        document.getElementById("resultado").innerHTML = `<span class="erro">Erro ao registrar movimentação: ${err.message}</span>`;
         tocarSom("erro");
         setStatus("erro");
         resetarLeitura();
-        return;
     }
-
-    const jaExiste = await resCheck.json();
-
-    if (jaExiste.length) {
-        document.getElementById("resultado").innerHTML = `<span class="erro">Presença já registrada.</span>`;
-        tocarSom("erro");
-        setStatus("erro");
-        resetarLeitura();
-        return;
-    }
-
-    const resInsert = await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
-        method: "POST",
-        headers: headers({
-            "Content-Type": "application/json"
-        }),
-        body: JSON.stringify({
-            evento_id: EVENTO_ID,
-            inscrito_id: inscrito.id,
-            numero_inscricao: inscrito.numero_inscricao,
-            metodo: "qr"
-        })
-    });
-
-    if (!resInsert.ok) {
-        const erro = await resInsert.text();
-        document.getElementById("resultado").innerHTML = `<span class="erro">Erro ao registrar: ${erro}</span>`;
-        tocarSom("erro");
-        setStatus("erro");
-        resetarLeitura();
-        return;
-    }
-
-    document.getElementById("resultado").innerHTML = `<span class="ok">✅ ${inscrito.nome} registrado com sucesso!</span>`;
-    tocarSom("ok");
-    setStatus("ok");
-
-    carregarPresencas();
-    atualizarDashboard();
-    resetarLeitura();
 }
 
 async function exportarExcel() {
@@ -888,7 +1005,7 @@ async function exportarExcel() {
     const linhas = dados.map(item => ({
         Nome: item.inscritos?.nome || "",
         Inscricao: item.numero_inscricao || "",
-        Horario: item.horario_checkin
+        Horario_Primeira_Entrada: item.horario_checkin
             ? new Date(item.horario_checkin).toLocaleString("pt-BR")
             : ""
     }));
@@ -897,6 +1014,42 @@ async function exportarExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Presencas");
     XLSX.writeFile(wb, `presencas_${EVENTO_NOME || "evento"}.xlsx`);
+}
+
+async function exportarMovimentacoesExcel() {
+    if (!EVENTO_ID) {
+        alert("Selecione um evento primeiro.");
+        return;
+    }
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,tipo_movimento,horario,inscritos(nome)&order=horario.asc`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        alert("Erro ao buscar movimentações:\n" + await res.text());
+        return;
+    }
+
+    const dados = await res.json();
+
+    if (!dados.length) {
+        alert("Nenhuma movimentação registrada para este evento.");
+        return;
+    }
+
+    const linhas = dados.map(item => ({
+        Nome: item.inscritos?.nome || "",
+        Inscricao: item.numero_inscricao || "",
+        Movimento: formatarMovimento(item.tipo_movimento),
+        Horario: item.horario ? new Date(item.horario).toLocaleString("pt-BR") : ""
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Movimentacoes");
+    XLSX.writeFile(wb, `movimentacoes_${EVENTO_NOME || "evento"}.xlsx`);
 }
 
 async function limparEventoAtual() {
@@ -908,6 +1061,11 @@ async function limparEventoAtual() {
     const confirmar = confirm(`Tem certeza que deseja limpar TODOS os dados do evento "${EVENTO_NOME}"?`);
     if (!confirmar) return;
 
+    const r0 = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}`, {
+        method: "DELETE",
+        headers: headers()
+    });
+
     const r1 = await fetch(`${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}`, {
         method: "DELETE",
         headers: headers()
@@ -918,14 +1076,16 @@ async function limparEventoAtual() {
         headers: headers()
     });
 
-    if (r1.ok && r2.ok) {
+    if (r0.ok && r1.ok && r2.ok) {
         alert("Evento limpo com sucesso.");
         carregarPresencas();
+        carregarMovimentacoes();
         atualizarDashboard();
     } else {
+        const erro0 = !r0.ok ? await r0.text() : "";
         const erro1 = !r1.ok ? await r1.text() : "";
         const erro2 = !r2.ok ? await r2.text() : "";
-        alert("Erro ao limpar evento:\n" + erro1 + "\n" + erro2);
+        alert("Erro ao limpar evento:\n" + erro0 + "\n" + erro1 + "\n" + erro2);
     }
 }
 
@@ -936,8 +1096,18 @@ async function resetCompleto() {
         return;
     }
 
-    const confirmar = confirm("ATENÇÃO: Isso vai apagar TODOS os eventos, inscritos e presenças. Continuar?");
+    const confirmar = confirm("ATENÇÃO: Isso vai apagar TODOS os eventos, inscritos, presenças e movimentações. Continuar?");
     if (!confirmar) return;
+
+    const m = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?id=not.is.null`, {
+        method: "DELETE",
+        headers: headers()
+    });
+
+    if (!m.ok) {
+        alert("Erro ao apagar movimentações:\n" + await m.text());
+        return;
+    }
 
     const a = await fetch(`${SUPABASE_URL}/rest/v1/presencas?id=not.is.null`, {
         method: "DELETE",
@@ -972,6 +1142,7 @@ async function resetCompleto() {
     alert("RESET COMPLETO realizado.");
 
     document.getElementById("listaPresencas").innerHTML = "";
+    document.getElementById("listaMovimentacoes").innerHTML = "";
     document.getElementById("totalPresencas").innerText = "Presenças: 0";
     document.getElementById("eventoSelect").innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
     EVENTO_ID = "";
@@ -985,6 +1156,7 @@ setInterval(() => {
     if (EVENTO_ID) {
         atualizarDashboard();
         carregarPresencas();
+        carregarMovimentacoes();
     }
 }, 5000);
 </script>
