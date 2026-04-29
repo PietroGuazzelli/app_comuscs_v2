@@ -515,31 +515,49 @@ async function importarCSV() {
                     "N Inscrição",
                     "Inscrição",
                     "inscricao",
-                    "numero_inscricao",
-                    "ID"
-                ]);
+                    "numero_inscricao"
+                ]).trim();
 
                 return {
                     evento_id: EVENTO_ID,
                     nome: nome,
                     numero_inscricao: numeroInscricao
                 };
-            }).filter(p => p.nome && p.numero_inscricao);
+            }).filter(p =>
+                p.nome &&
+                p.numero_inscricao &&
+                String(p.numero_inscricao).trim() !== ""
+            );
 
             if (!payload.length) {
                 console.log("DEBUG CSV:", rows);
-                alert("Nenhum registro válido encontrado no CSV.");
+                alert("Nenhum registro válido encontrado no CSV. Verifique se há participantes com Número de Inscrição preenchido.");
                 return;
             }
 
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/inscritos`, {
-                method: "POST",
-                headers: headers({
-                    "Content-Type": "application/json",
-                    "Prefer": "resolution=merge-duplicates"
-                }),
-                body: JSON.stringify(payload)
-            });
+            const payloadSemDuplicados = Array.from(
+                new Map(
+                    payload.map(item => [
+                        `${item.evento_id}-${item.numero_inscricao}`,
+                        item
+                    ])
+                ).values()
+            );
+
+            const ignoradosPorDuplicidade = payload.length - payloadSemDuplicados.length;
+            const ignoradosSemInscricao = rows.length - payload.length;
+
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/inscritos?on_conflict=evento_id,numero_inscricao`,
+                {
+                    method: "POST",
+                    headers: headers({
+                        "Content-Type": "application/json",
+                        "Prefer": "resolution=merge-duplicates,return=minimal"
+                    }),
+                    body: JSON.stringify(payloadSemDuplicados)
+                }
+            );
 
             if (!res.ok) {
                 const erro = await res.text();
@@ -547,7 +565,13 @@ async function importarCSV() {
                 return;
             }
 
-            alert(`Importação concluída: ${payload.length} inscritos vinculados ao evento "${EVENTO_NOME}".`);
+            alert(
+                `Importação concluída para o evento "${EVENTO_NOME}".\n\n` +
+                `Inscritos válidos importados/atualizados: ${payloadSemDuplicados.length}\n` +
+                `Linhas ignoradas sem número de inscrição: ${ignoradosSemInscricao}\n` +
+                `Duplicados dentro do CSV ignorados: ${ignoradosPorDuplicidade}`
+            );
+
             fileInput.value = "";
         }
     });
