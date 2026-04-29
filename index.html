@@ -10,1155 +10,277 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-:root {
-    --brand-blue: #0e3a69;
-    --brand-blue-2: #0b2f55;
-    --brand-accent: #0e6cc4;
-}
-
-* { box-sizing: border-box; }
-
-body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    margin: 0;
-    padding: 0 20px 20px;
-    transition: background-color 0.3s;
-}
-
-.page-wrapper {
-    width: min(1100px, 100%);
-    margin: 0 auto;
-}
-
-.hero {
-    position: relative;
-    margin: 0 -20px 20px;
-    min-height: 240px;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    text-align: left;
-    overflow: hidden;
-    padding: 30px 20px;
-    background:
-        linear-gradient(rgba(10, 43, 77, 0.88), rgba(10, 43, 77, 0.88)),
-        url("IMAGEM EVEN3 OFICIAL.jpeg") center/cover no-repeat;
-}
-
-.hero::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(120deg, transparent 40%, rgba(14, 108, 196, 0.5) 100%);
-    pointer-events: none;
-}
-
-.hero-content {
-    position: relative;
-    z-index: 1;
-    max-width: 700px;
-}
-
-.hero-kicker {
-    margin: 0;
-    font-size: clamp(14px, 2vw, 24px);
-}
-
-.hero-title {
-    margin: 10px 0;
-    font-size: clamp(38px, 8vw, 78px);
-    font-weight: 700;
-    line-height: 1;
-}
-
-.hero-date {
-    display: inline-block;
-    margin: 0;
-    padding: 8px 16px;
-    border-radius: 999px;
-    color: #0a2b4d;
-    background: rgba(255, 255, 255, 0.92);
-    font-size: clamp(16px, 2.4vw, 32px);
-    font-weight: 700;
-}
-
-.dashboard {
-    border: 1px solid #ccc;
-    padding: 15px;
-    margin: 15px auto;
-    border-radius: 10px;
-    background: #f8f9fa;
-    max-width: 700px;
-}
+body { font-family: Arial; text-align:center; padding:20px; }
 
 .dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin: 10px 0;
+    display:grid;
+    grid-template-columns: repeat(4,1fr);
+    gap:10px;
 }
 
 .dashboard-card {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 12px;
+    border:1px solid #ccc;
+    padding:10px;
+    border-radius:8px;
+    background:#f9f9f9;
 }
 
 .dashboard-card strong {
-    display: block;
-    font-size: 26px;
-    color: var(--brand-blue);
+    font-size:22px;
+    display:block;
 }
 
-#reader {
-    width: min(360px, 100%);
-    margin: auto;
-}
+#reader { width:300px; margin:auto; }
+button { padding:10px; margin:5px; }
 
-.result {
-    margin-top: 20px;
-    font-size: 22px;
-}
-
-.ok { color: green; font-weight: bold; }
-.erro { color: red; font-weight: bold; }
-.aviso { color: #b7791f; font-weight: bold; }
-
-body.ok-bg { background-color: #d4edda; }
-body.erro-bg { background-color: #f8d7da; }
-body.aviso-bg { background-color: #fff3cd; }
-
-#resultado { transition: opacity 0.3s; }
+.ok { color:green; }
+.erro { color:red; }
+.aviso { color:orange; }
 
 table {
-    width: 100%;
+    width:100%;
+    margin-top:10px;
     border-collapse: collapse;
-    margin-top: 15px;
-    font-size: 14px;
 }
 
-th, td {
-    padding: 8px;
-    border: 1px solid #ccc;
-}
-
-th { background-color: #f2f2f2; }
-
-button, select, input {
-    padding: 10px;
-    margin: 6px;
-}
-
-.admin-box {
-    border: 1px solid #ccc;
-    padding: 15px;
-    margin-top: 15px;
-    border-radius: 8px;
-}
-
-@media (max-width: 768px) {
-    body { padding: 0 12px 12px; }
-
-    .hero {
-        margin: 0 -12px 16px;
-        min-height: 200px;
-        padding: 24px 14px;
-    }
-
-    .result { font-size: 18px; }
-
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-
-    button, select, input {
-        width: 100%;
-        max-width: 100%;
-        margin: 6px 0;
-    }
-
-    th, td {
-        padding: 6px;
-        font-size: 12px;
-    }
+td, th {
+    border:1px solid #ccc;
+    padding:6px;
 }
 </style>
 </head>
 
 <body>
 
-<section class="hero" aria-label="Capa do congresso COMUSCS">
-  <div class="hero-content">
-    <p class="hero-kicker">11ª Edição do Congresso Médico Universitário de São Caetano do Sul</p>
-    <h1 class="hero-title">XICOMUSCS</h1>
-    <p class="hero-date">7, 8 e 9 de outubro de 2026</p>
-  </div>
-</section>
-
-<main class="page-wrapper">
-
 <h2>Check-in COMUSCS</h2>
 
-<label>Evento:</label>
-<select id="eventoSelect" onchange="trocarEvento()">
-  <option value="">Carregando eventos...</option>
-</select>
+<select id="eventoSelect" onchange="trocarEvento()"></select>
 
 <br>
 
 <button id="btnCamera" onclick="toggleCamera()">Ativar câmera</button>
-
-<button id="btnTrocarCamera" onclick="trocarCamera()" style="display:none;">
-  Alternar câmera
-</button>
+<button id="btnTrocarCamera" onclick="trocarCamera()" style="display:none;">Alternar câmera</button>
 
 <div id="reader"></div>
 
-<div class="result" id="resultado"></div>
+<div id="resultado"></div>
 
 <div class="dashboard">
-    <h3>📊 Resumo do evento</h3>
+<h3>Resumo do evento</h3>
 
-    <div class="dashboard-grid">
-        <div class="dashboard-card">
-            <span>Inscritos</span>
-            <strong id="dashboardInscritos">0</strong>
-        </div>
-
-        <div class="dashboard-card">
-            <span>Presenças</span>
-            <strong id="dashboardPresencas">0</strong>
-        </div>
-
-        <div class="dashboard-card">
-            <span>Pendentes</span>
-            <strong id="dashboardPendentes">0</strong>
-        </div>
-    </div>
-
-    <button onclick="verInscritos()">Ver inscritos importados</button>
+<div class="dashboard-grid">
+<div class="dashboard-card"><span>Inscritos</span><strong id="dashboardInscritos">0</strong></div>
+<div class="dashboard-card"><span>Presenças</span><strong id="dashboardPresencas">0</strong></div>
+<div class="dashboard-card"><span>Pendentes</span><strong id="dashboardPendentes">0</strong></div>
+<div class="dashboard-card"><span>Fora</span><strong id="dashboardFora">0</strong></div>
 </div>
 
-<audio id="som-ok" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
-<audio id="som-erro" src="https://actions.google.com/sounds/v1/cartoon/boing.ogg"></audio>
+<button onclick="verInscritos()">Ver inscritos</button>
+</div>
 
 <hr>
 
-<h3 id="totalPresencas">Presenças: 0</h3>
-
+<h3>Presenças</h3>
 <table>
-  <thead>
-    <tr>
-      <th>Nome</th>
-      <th>Nº Inscrição</th>
-      <th>Horário</th>
-    </tr>
-  </thead>
-  <tbody id="listaPresencas"></tbody>
+<thead><tr><th>Nome</th><th>Nº</th><th>Hora</th></tr></thead>
+<tbody id="listaPresencas"></tbody>
+</table>
+
+<h3>Movimentações</h3>
+<table>
+<thead><tr><th>Nome</th><th>Nº</th><th>Movimento</th><th>Hora</th></tr></thead>
+<tbody id="listaMovimentacoes"></tbody>
 </table>
 
 <hr>
 
-<h3>Movimentações recentes</h3>
+<input type="file" id="csvInput">
+<button onclick="importarCSV()">Importar CSV</button>
 
-<table>
-  <thead>
-    <tr>
-      <th>Nome</th>
-      <th>Nº Inscrição</th>
-      <th>Movimento</th>
-      <th>Horário</th>
-    </tr>
-  </thead>
-  <tbody id="listaMovimentacoes"></tbody>
-</table>
-
-<hr>
-
-<button onclick="abrirAdmin()">Área do administrador</button>
-
-<div id="adminArea" style="display:none;" class="admin-box">
-
-  <button onclick="fecharAdmin()" style="background:#6c757d; color:white;">
-    Fechar área do administrador
-  </button>
-
-  <h3>Gestão do Evento</h3>
-
-  <h4>Criar novo evento</h4>
-  <input id="novoEventoNome" placeholder="Nome do evento">
-  <input id="novoEventoData" type="date">
-  <button onclick="criarEvento()">Criar evento</button>
-
-  <hr>
-
-  <h4>Importar lista padrão CSV</h4>
-  <p>Use o CSV original exportado do Even3, sem renomear colunas.</p>
-  <input type="file" id="csvInput" accept=".csv">
-  <button onclick="importarCSV()">Importar lista para o evento selecionado</button>
-
-  <hr>
-
-  <button onclick="exportarExcel()">Exportar presenças em Excel</button>
-  <button onclick="exportarMovimentacoesExcel()">Exportar movimentações em Excel</button>
-
-  <hr>
-
-  <h4>Zona de risco</h4>
-
-  <button onclick="limparEventoAtual()" style="background:#ffc107;">
-    Limpar evento atual
-  </button>
-
-  <button onclick="resetCompleto()" style="background:#dc3545; color:white;">
-    RESET COMPLETO
-  </button>
-
-</div>
-
-</main>
+<button onclick="exportarExcel()">Exportar Presenças</button>
+<button onclick="exportarMov()">Exportar Movimentações</button>
 
 <script>
-const SUPABASE_URL = "https://goytizsanwooamfjtvqk.supabase.co";
-const SUPABASE_KEY = "sb_publishable_Q7seQ6RlNFw1cWuHqgV4qQ_QB42w8Sp";
 
-const SENHA_ADMIN = "comuscs2026";
+const SUPABASE_URL = "SUA_URL";
+const SUPABASE_KEY = "SUA_KEY";
 
-let processando = false;
 let EVENTO_ID = "";
-let EVENTO_NOME = "";
-
 let html5QrCode = null;
 let cameraAtiva = false;
-let camerasDisponiveis = [];
-let cameraIndexAtual = 0;
+let cameras = [];
+let camIndex = 0;
 
-function headers(extra = {}) {
+function headers(extra={}) {
     return {
         "apikey": SUPABASE_KEY,
         "Authorization": `Bearer ${SUPABASE_KEY}`,
         ...extra
-    };
-}
-
-function abrirAdmin() {
-    const senha = prompt("Digite a senha de administrador:");
-
-    if (senha === SENHA_ADMIN) {
-        document.getElementById("adminArea").style.display = "block";
-        alert("Acesso liberado.");
-    } else {
-        alert("Senha incorreta.");
     }
 }
 
-function fecharAdmin() {
-    document.getElementById("adminArea").style.display = "none";
-}
-
-function tocarSom(tipo) {
-    const som = document.getElementById(tipo === "ok" ? "som-ok" : "som-erro");
-    som.currentTime = 0;
-    som.play().catch(() => {});
-}
-
-function setStatus(tipo) {
-    document.body.classList.remove("ok-bg", "erro-bg", "aviso-bg");
-
-    if (tipo === "ok") document.body.classList.add("ok-bg");
-    if (tipo === "erro") document.body.classList.add("erro-bg");
-    if (tipo === "aviso") document.body.classList.add("aviso-bg");
-}
-
-function resetarLeitura() {
-    setTimeout(() => {
-        document.getElementById("resultado").style.opacity = "0";
-
-        setTimeout(() => {
-            document.getElementById("resultado").innerHTML = "";
-            document.getElementById("resultado").style.opacity = "1";
-            document.body.classList.remove("ok-bg", "erro-bg", "aviso-bg");
-            processando = false;
-        }, 300);
-    }, 2500);
-}
-
-async function iniciarCamera() {
-    const btn = document.getElementById("btnCamera");
-    const btnTrocar = document.getElementById("btnTrocarCamera");
-
-    if (!html5QrCode) {
+async function toggleCamera(){
+    if(!cameraAtiva){
         html5QrCode = new Html5Qrcode("reader");
-    }
-
-    if (!camerasDisponiveis.length) {
-        camerasDisponiveis = await Html5Qrcode.getCameras();
-    }
-
-    if (!camerasDisponiveis || !camerasDisponiveis.length) {
-        alert("Nenhuma câmera encontrada.");
-        return;
-    }
-
-    const cameraId = camerasDisponiveis[cameraIndexAtual].id;
-
-    await html5QrCode.start(
-        cameraId,
-        { fps: 10, qrbox: 250 },
-        qrCodeMessage => registrarPresenca(qrCodeMessage),
-        errorMessage => {}
-    );
-
-    cameraAtiva = true;
-    btn.innerText = "Desativar câmera";
-
-    if (camerasDisponiveis.length > 1) {
-        btnTrocar.style.display = "inline-block";
-    }
-}
-
-async function pararCamera() {
-    const btn = document.getElementById("btnCamera");
-    const btnTrocar = document.getElementById("btnTrocarCamera");
-
-    if (html5QrCode && cameraAtiva) {
+        cameras = await Html5Qrcode.getCameras();
+        await startCam();
+        cameraAtiva=true;
+    } else {
         await html5QrCode.stop();
-        await html5QrCode.clear();
-    }
-
-    cameraAtiva = false;
-    btn.innerText = "Ativar câmera";
-    btnTrocar.style.display = "none";
-}
-
-async function toggleCamera() {
-    try {
-        if (!cameraAtiva) {
-            await iniciarCamera();
-        } else {
-            await pararCamera();
-        }
-    } catch (err) {
-        alert("Erro na câmera: " + err);
+        cameraAtiva=false;
     }
 }
 
-async function trocarCamera() {
-    try {
-        if (!camerasDisponiveis.length) {
-            camerasDisponiveis = await Html5Qrcode.getCameras();
-        }
-
-        if (camerasDisponiveis.length <= 1) {
-            alert("Só há uma câmera disponível.");
-            return;
-        }
-
-        if (cameraAtiva && html5QrCode) {
-            await html5QrCode.stop();
-            await html5QrCode.clear();
-        }
-
-        cameraIndexAtual = (cameraIndexAtual + 1) % camerasDisponiveis.length;
-
-        await iniciarCamera();
-
-    } catch (err) {
-        alert("Erro ao alternar câmera: " + err);
-    }
-}
-
-async function carregarEventos() {
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/eventos?select=id,nome,data_evento&order=criado_em.desc`,
-        { headers: headers() }
+async function startCam(){
+    await html5QrCode.start(
+        cameras[camIndex].id,
+        {fps:10,qrbox:250},
+        msg=>registrar(msg)
     );
-
-    if (!res.ok) {
-        alert("Erro ao carregar eventos:\n" + await res.text());
-        return;
-    }
-
-    const eventos = await res.json();
-    const select = document.getElementById("eventoSelect");
-
-    select.innerHTML = "";
-
-    if (!eventos.length) {
-        select.innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
-        EVENTO_ID = "";
-        EVENTO_NOME = "";
-        limparTelaEvento();
-        return;
-    }
-
-    eventos.forEach(ev => {
-        const option = document.createElement("option");
-        option.value = ev.id;
-        option.textContent = ev.data_evento ? `${ev.nome} - ${ev.data_evento}` : ev.nome;
-        option.dataset.nome = ev.nome;
-        select.appendChild(option);
-    });
-
-    EVENTO_ID = select.value;
-    EVENTO_NOME = select.options[select.selectedIndex].dataset.nome;
-
-    await atualizarDashboard();
-    await carregarPresencas();
-    await carregarMovimentacoes();
 }
 
-function trocarEvento() {
-    const select = document.getElementById("eventoSelect");
-    EVENTO_ID = select.value;
-    EVENTO_NOME = select.options[select.selectedIndex]?.dataset.nome || "evento";
+async function trocarCamera(){
+    if(cameras.length<2) return;
+    await html5QrCode.stop();
+    camIndex = (camIndex+1)%cameras.length;
+    await startCam();
+}
+
+async function registrar(code){
+    let num = code.trim();
+
+    let r = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?numero_inscricao=eq.${num}&select=id,nome`,{headers:headers()});
+    let data = await r.json();
+
+    if(!data.length){
+        resultado("Não encontrado","erro"); return;
+    }
+
+    let pessoa = data[0];
+
+    let pres = await fetch(`${SUPABASE_URL}/rest/v1/presencas?inscrito_id=eq.${pessoa.id}`,{headers:headers()});
+    let presData = await pres.json();
+
+    if(!presData.length){
+        await fetch(`${SUPABASE_URL}/rest/v1/presencas`,{
+            method:"POST",
+            headers:headers({"Content-Type":"application/json"}),
+            body:JSON.stringify({evento_id:EVENTO_ID,inscrito_id:pessoa.id,numero_inscricao:num})
+        });
+
+        await mov(pessoa,"entrada");
+        resultado("Entrada registrada","ok");
+
+    } else {
+
+        let ult = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?inscrito_id=eq.${pessoa.id}&order=horario.desc&limit=1`,{headers:headers()});
+        let ultData = await ult.json();
+
+        if(!ultData.length || ultData[0].tipo_movimento==="saida"){
+            if(confirm("Registrar retorno?")){
+                await mov(pessoa,"retorno");
+                resultado("Retorno","ok");
+            }
+        } else {
+            if(confirm("Registrar saída?")){
+                await mov(pessoa,"saida");
+                resultado("Saída","ok");
+            }
+        }
+    }
 
     atualizarDashboard();
-    carregarPresencas();
-    carregarMovimentacoes();
 }
 
-function limparTelaEvento() {
-    document.getElementById("dashboardInscritos").innerText = "0";
-    document.getElementById("dashboardPresencas").innerText = "0";
-    document.getElementById("dashboardPendentes").innerText = "0";
-    document.getElementById("listaPresencas").innerHTML = "";
-    document.getElementById("listaMovimentacoes").innerHTML = "";
-    document.getElementById("totalPresencas").innerText = "Presenças: 0";
-}
-
-async function criarEvento() {
-    const nome = document.getElementById("novoEventoNome").value.trim();
-    const data = document.getElementById("novoEventoData").value;
-
-    if (!nome) {
-        alert("Digite o nome do evento.");
-        return;
-    }
-
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
-        method: "POST",
-        headers: headers({
-            "Content-Type": "application/json",
-            "Prefer": "return=representation"
-        }),
-        body: JSON.stringify({
-            nome: nome,
-            data_evento: data || null
+async function mov(pessoa,tipo){
+    await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca`,{
+        method:"POST",
+        headers:headers({"Content-Type":"application/json"}),
+        body:JSON.stringify({
+            evento_id:EVENTO_ID,
+            inscrito_id:pessoa.id,
+            numero_inscricao:pessoa.numero_inscricao,
+            tipo_movimento:tipo
         })
     });
-
-    if (!res.ok) {
-        const erro = await res.text();
-        alert("Erro ao criar evento:\n" + erro);
-        return;
-    }
-
-    document.getElementById("novoEventoNome").value = "";
-    document.getElementById("novoEventoData").value = "";
-    alert("Evento criado com sucesso!");
-    carregarEventos();
 }
 
-function normalizarTexto(valor) {
-    return String(valor || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .trim();
+function resultado(msg,tipo){
+    document.getElementById("resultado").innerHTML=`<span class="${tipo}">${msg}</span>`;
 }
 
-function obterCampo(row, possibilidades) {
-    const mapa = {};
+async function atualizarDashboard(){
 
-    Object.keys(row).forEach(chave => {
-        mapa[normalizarTexto(chave)] = row[chave];
-    });
+    let ins = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}`,{headers:headers()});
+    let pres = await fetch(`${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}`,{headers:headers()});
+    let mov = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}`,{headers:headers()});
 
-    for (const nome of possibilidades) {
-        const valor = mapa[normalizarTexto(nome)];
-        if (valor !== undefined && String(valor).trim() !== "") {
-            return String(valor).trim();
-        }
-    }
+    let insD = await ins.json();
+    let presD = await pres.json();
+    let movD = await mov.json();
 
-    return "";
+    let ult = {};
+    movD.forEach(m=>ult[m.inscrito_id]=m.tipo_movimento);
+
+    let fora = Object.values(ult).filter(x=>x==="saida").length;
+
+    document.getElementById("dashboardInscritos").innerText=insD.length;
+    document.getElementById("dashboardPresencas").innerText=presD.length;
+    document.getElementById("dashboardPendentes").innerText=insD.length-presD.length;
+    document.getElementById("dashboardFora").innerText=fora;
 }
 
-async function importarCSV() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento primeiro.");
-        return;
-    }
+async function importarCSV(){
 
-    const fileInput = document.getElementById("csvInput");
-    const file = fileInput.files[0];
+    let file = document.getElementById("csvInput").files[0];
 
-    if (!file) {
-        alert("Selecione um arquivo CSV.");
-        return;
-    }
+    Papa.parse(file,{
+        header:true,
+        delimiter:";",
+        complete: async function(res){
 
-    Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        delimiter: ";",
+            let payload = res.data.map(r=>({
+                evento_id:EVENTO_ID,
+                nome:r["Nome"],
+                numero_inscricao:r["Número de Inscrição"]
+            })).filter(x=>x.numero_inscricao);
 
-        complete: async function(results) {
-            const rows = results.data;
+            await fetch(`${SUPABASE_URL}/rest/v1/inscritos?on_conflict=evento_id,numero_inscricao`,{
+                method:"POST",
+                headers:headers({"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"}),
+                body:JSON.stringify(payload)
+            });
 
-            if (!rows.length) {
-                alert("CSV vazio.");
-                return;
-            }
-
-            const payload = rows.map(r => {
-                const nome = obterCampo(r, [
-                    "Nome",
-                    "nome",
-                    "NOME",
-                    "Nome Completo",
-                    "Participante"
-                ]);
-
-                const numeroInscricao = obterCampo(r, [
-                    "Número de Inscrição",
-                    "Numero de Inscricao",
-                    "Nº Inscrição",
-                    "N Inscrição",
-                    "Inscrição",
-                    "inscricao",
-                    "numero_inscricao"
-                ]).trim();
-
-                return {
-                    evento_id: EVENTO_ID,
-                    nome: nome,
-                    numero_inscricao: numeroInscricao
-                };
-            }).filter(p =>
-                p.nome &&
-                p.numero_inscricao &&
-                String(p.numero_inscricao).trim() !== ""
-            );
-
-            if (!payload.length) {
-                console.log("DEBUG CSV:", rows);
-                alert("Nenhum registro válido encontrado no CSV. Verifique se há participantes com Número de Inscrição preenchido.");
-                return;
-            }
-
-            const payloadSemDuplicados = Array.from(
-                new Map(
-                    payload.map(item => [
-                        `${item.evento_id}-${item.numero_inscricao}`,
-                        item
-                    ])
-                ).values()
-            );
-
-            const ignoradosPorDuplicidade = payload.length - payloadSemDuplicados.length;
-            const ignoradosSemInscricao = rows.length - payload.length;
-
-            const res = await fetch(
-                `${SUPABASE_URL}/rest/v1/inscritos?on_conflict=evento_id,numero_inscricao`,
-                {
-                    method: "POST",
-                    headers: headers({
-                        "Content-Type": "application/json",
-                        "Prefer": "resolution=merge-duplicates,return=minimal"
-                    }),
-                    body: JSON.stringify(payloadSemDuplicados)
-                }
-            );
-
-            if (!res.ok) {
-                const erro = await res.text();
-                alert("Erro ao importar CSV:\n" + erro);
-                return;
-            }
-
-            alert(
-                `Importação concluída para o evento "${EVENTO_NOME}".\n\n` +
-                `Inscritos válidos importados/atualizados: ${payloadSemDuplicados.length}\n` +
-                `Linhas ignoradas sem número de inscrição: ${ignoradosSemInscricao}\n` +
-                `Duplicados dentro do CSV ignorados: ${ignoradosPorDuplicidade}`
-            );
-
-            fileInput.value = "";
             atualizarDashboard();
         }
     });
 }
 
-async function atualizarDashboard() {
-    if (!EVENTO_ID) {
-        limparTelaEvento();
-        return;
-    }
+async function exportarExcel(){
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/presencas?select=numero_inscricao,inscritos(nome)`,{headers:headers()});
+    let d = await res.json();
 
-    const resInscritos = await fetch(
-        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&select=id`,
-        { headers: headers() }
-    );
+    let ws = XLSX.utils.json_to_sheet(d.map(x=>({
+        Nome:x.inscritos.nome,
+        Inscricao:x.numero_inscricao
+    })));
 
-    const resPresencas = await fetch(
-        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=id`,
-        { headers: headers() }
-    );
-
-    if (!resInscritos.ok || !resPresencas.ok) {
-        console.error("Erro ao atualizar dashboard.");
-        return;
-    }
-
-    const inscritos = await resInscritos.json();
-    const presencas = await resPresencas.json();
-
-    const totalInscritos = inscritos.length;
-    const totalPresencas = presencas.length;
-    const pendentes = Math.max(totalInscritos - totalPresencas, 0);
-
-    document.getElementById("dashboardInscritos").innerText = totalInscritos;
-    document.getElementById("dashboardPresencas").innerText = totalPresencas;
-    document.getElementById("dashboardPendentes").innerText = pendentes;
-    document.getElementById("totalPresencas").innerText = `Presenças: ${totalPresencas}`;
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Presencas");
+    XLSX.writeFile(wb,"presencas.xlsx");
 }
 
-async function verInscritos() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento primeiro.");
-        return;
-    }
+async function exportarMov(){
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?select=numero_inscricao,tipo_movimento`,{headers:headers()});
+    let d = await res.json();
 
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&select=nome,numero_inscricao&order=nome.asc`,
-        { headers: headers() }
-    );
+    let ws = XLSX.utils.json_to_sheet(d);
 
-    if (!res.ok) {
-        alert("Erro ao buscar inscritos:\n" + await res.text());
-        return;
-    }
-
-    const inscritos = await res.json();
-
-    if (!inscritos.length) {
-        alert("Nenhum inscrito importado para este evento.");
-        return;
-    }
-
-    const texto = inscritos
-        .map((i, index) => `${index + 1}. ${i.nome} — ${i.numero_inscricao}`)
-        .join("\n");
-
-    alert(`Inscritos importados em "${EVENTO_NOME}":\n\n${texto}`);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Mov");
+    XLSX.writeFile(wb,"movimentacoes.xlsx");
 }
 
-async function carregarPresencas() {
-    if (!EVENTO_ID) return;
-
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,horario_checkin,inscritos(nome)&order=horario_checkin.desc`,
-        { headers: headers() }
-    );
-
-    if (!res.ok) {
-        const erro = await res.text();
-        console.error("Erro ao carregar presenças:", erro);
-        return;
-    }
-
-    const dados = await res.json();
-    const tbody = document.getElementById("listaPresencas");
-    tbody.innerHTML = "";
-
-    dados.forEach(item => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${item.inscritos?.nome || ""}</td>
-            <td>${item.numero_inscricao || ""}</td>
-            <td>${item.horario_checkin ? new Date(item.horario_checkin).toLocaleString("pt-BR") : ""}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-
-    document.getElementById("totalPresencas").innerText = `Presenças: ${dados.length}`;
-}
-
-async function carregarMovimentacoes() {
-    if (!EVENTO_ID) return;
-
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,tipo_movimento,horario,inscritos(nome)&order=horario.desc&limit=30`,
-        { headers: headers() }
-    );
-
-    if (!res.ok) {
-        console.error("Erro ao carregar movimentações:", await res.text());
-        return;
-    }
-
-    const dados = await res.json();
-    const tbody = document.getElementById("listaMovimentacoes");
-    tbody.innerHTML = "";
-
-    dados.forEach(item => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${item.inscritos?.nome || ""}</td>
-            <td>${item.numero_inscricao || ""}</td>
-            <td>${formatarMovimento(item.tipo_movimento)}</td>
-            <td>${item.horario ? new Date(item.horario).toLocaleString("pt-BR") : ""}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function formatarMovimento(tipo) {
-    if (tipo === "entrada") return "Entrada";
-    if (tipo === "saida") return "Saída";
-    if (tipo === "retorno") return "Retorno";
-    return tipo || "";
-}
-
-async function buscarUltimoMovimento(inscritoId) {
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}&inscrito_id=eq.${inscritoId}&select=tipo_movimento,horario&order=horario.desc&limit=1`,
-        { headers: headers() }
-    );
-
-    if (!res.ok) {
-        throw new Error(await res.text());
-    }
-
-    const dados = await res.json();
-    return dados[0] || null;
-}
-
-async function inserirMovimento(inscrito, tipo) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca`, {
-        method: "POST",
-        headers: headers({
-            "Content-Type": "application/json"
-        }),
-        body: JSON.stringify({
-            evento_id: EVENTO_ID,
-            inscrito_id: inscrito.id,
-            numero_inscricao: inscrito.numero_inscricao,
-            tipo_movimento: tipo
-        })
-    });
-
-    if (!res.ok) {
-        throw new Error(await res.text());
-    }
-}
-
-async function registrarPresenca(qrCodeMessage) {
-    if (processando) return;
-    processando = true;
-
-    if (!EVENTO_ID) {
-        document.getElementById("resultado").innerHTML = `<span class="erro">Selecione um evento primeiro.</span>`;
-        tocarSom("erro");
-        setStatus("erro");
-        resetarLeitura();
-        return;
-    }
-
-    let numeroInscricao = qrCodeMessage.trim();
-
-    const resInscrito = await fetch(
-        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=id,nome,numero_inscricao`,
-        { headers: headers() }
-    );
-
-    if (!resInscrito.ok) {
-        const erro = await resInscrito.text();
-        document.getElementById("resultado").innerHTML = `<span class="erro">Erro ao buscar inscrito: ${erro}</span>`;
-        tocarSom("erro");
-        setStatus("erro");
-        resetarLeitura();
-        return;
-    }
-
-    const inscritos = await resInscrito.json();
-
-    if (!inscritos.length) {
-        document.getElementById("resultado").innerHTML = `<span class="erro">Inscrição não encontrada neste evento.</span>`;
-        tocarSom("erro");
-        setStatus("erro");
-        resetarLeitura();
-        return;
-    }
-
-    const inscrito = inscritos[0];
-
-    try {
-        const resCheck = await fetch(
-            `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=id`,
-            { headers: headers() }
-        );
-
-        if (!resCheck.ok) {
-            throw new Error(await resCheck.text());
-        }
-
-        const jaExiste = await resCheck.json();
-
-        if (!jaExiste.length) {
-            const resInsert = await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
-                method: "POST",
-                headers: headers({
-                    "Content-Type": "application/json"
-                }),
-                body: JSON.stringify({
-                    evento_id: EVENTO_ID,
-                    inscrito_id: inscrito.id,
-                    numero_inscricao: inscrito.numero_inscricao,
-                    metodo: "qr"
-                })
-            });
-
-            if (!resInsert.ok) {
-                throw new Error(await resInsert.text());
-            }
-
-            await inserirMovimento(inscrito, "entrada");
-
-            document.getElementById("resultado").innerHTML = `<span class="ok">✅ ${inscrito.nome} registrado com sucesso! Entrada registrada.</span>`;
-            tocarSom("ok");
-            setStatus("ok");
-
-        } else {
-            const ultimo = await buscarUltimoMovimento(inscrito.id);
-
-            if (!ultimo || ultimo.tipo_movimento === "saida") {
-                const confirmarRetorno = confirm(`${inscrito.nome} já possui presença registrada.\n\nDeseja registrar RETORNO agora?`);
-
-                if (confirmarRetorno) {
-                    await inserirMovimento(inscrito, "retorno");
-                    document.getElementById("resultado").innerHTML = `<span class="ok">✅ Retorno registrado: ${inscrito.nome}</span>`;
-                    tocarSom("ok");
-                    setStatus("ok");
-                } else {
-                    document.getElementById("resultado").innerHTML = `<span class="aviso">Leitura cancelada.</span>`;
-                    setStatus("aviso");
-                }
-
-            } else {
-                const confirmarSaida = confirm(`${inscrito.nome} já está registrado e consta como dentro do evento.\n\nDeseja registrar SAÍDA agora?`);
-
-                if (confirmarSaida) {
-                    await inserirMovimento(inscrito, "saida");
-                    document.getElementById("resultado").innerHTML = `<span class="ok">✅ Saída registrada: ${inscrito.nome}</span>`;
-                    tocarSom("ok");
-                    setStatus("ok");
-                } else {
-                    document.getElementById("resultado").innerHTML = `<span class="aviso">Leitura cancelada.</span>`;
-                    setStatus("aviso");
-                }
-            }
-        }
-
-        carregarPresencas();
-        carregarMovimentacoes();
-        atualizarDashboard();
-        resetarLeitura();
-
-    } catch (err) {
-        document.getElementById("resultado").innerHTML = `<span class="erro">Erro ao registrar movimentação: ${err.message}</span>`;
-        tocarSom("erro");
-        setStatus("erro");
-        resetarLeitura();
-    }
-}
-
-async function exportarExcel() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento primeiro.");
-        return;
-    }
-
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,horario_checkin,inscritos(nome)&order=horario_checkin.desc`,
-        { headers: headers() }
-    );
-
-    if (!res.ok) {
-        const erro = await res.text();
-        alert("Erro ao buscar presenças para exportar:\n" + erro);
-        return;
-    }
-
-    const dados = await res.json();
-
-    if (!dados.length) {
-        alert("Nenhuma presença registrada para este evento.");
-        return;
-    }
-
-    const linhas = dados.map(item => ({
-        Nome: item.inscritos?.nome || "",
-        Inscricao: item.numero_inscricao || "",
-        Horario_Primeira_Entrada: item.horario_checkin
-            ? new Date(item.horario_checkin).toLocaleString("pt-BR")
-            : ""
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(linhas);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Presencas");
-    XLSX.writeFile(wb, `presencas_${EVENTO_NOME || "evento"}.xlsx`);
-}
-
-async function exportarMovimentacoesExcel() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento primeiro.");
-        return;
-    }
-
-    const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,tipo_movimento,horario,inscritos(nome)&order=horario.asc`,
-        { headers: headers() }
-    );
-
-    if (!res.ok) {
-        alert("Erro ao buscar movimentações:\n" + await res.text());
-        return;
-    }
-
-    const dados = await res.json();
-
-    if (!dados.length) {
-        alert("Nenhuma movimentação registrada para este evento.");
-        return;
-    }
-
-    const linhas = dados.map(item => ({
-        Nome: item.inscritos?.nome || "",
-        Inscricao: item.numero_inscricao || "",
-        Movimento: formatarMovimento(item.tipo_movimento),
-        Horario: item.horario ? new Date(item.horario).toLocaleString("pt-BR") : ""
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(linhas);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Movimentacoes");
-    XLSX.writeFile(wb, `movimentacoes_${EVENTO_NOME || "evento"}.xlsx`);
-}
-
-async function limparEventoAtual() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento primeiro.");
-        return;
-    }
-
-    const confirmar = confirm(`Tem certeza que deseja limpar TODOS os dados do evento "${EVENTO_NOME}"?`);
-    if (!confirmar) return;
-
-    const r0 = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}`, {
-        method: "DELETE",
-        headers: headers()
-    });
-
-    const r1 = await fetch(`${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}`, {
-        method: "DELETE",
-        headers: headers()
-    });
-
-    const r2 = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}`, {
-        method: "DELETE",
-        headers: headers()
-    });
-
-    if (r0.ok && r1.ok && r2.ok) {
-        alert("Evento limpo com sucesso.");
-        carregarPresencas();
-        carregarMovimentacoes();
-        atualizarDashboard();
-    } else {
-        const erro0 = !r0.ok ? await r0.text() : "";
-        const erro1 = !r1.ok ? await r1.text() : "";
-        const erro2 = !r2.ok ? await r2.text() : "";
-        alert("Erro ao limpar evento:\n" + erro0 + "\n" + erro1 + "\n" + erro2);
-    }
-}
-
-async function resetCompleto() {
-    const senha = prompt("Digite a senha master para reset completo:");
-    if (senha !== "reset2026") {
-        alert("Senha incorreta.");
-        return;
-    }
-
-    const confirmar = confirm("ATENÇÃO: Isso vai apagar TODOS os eventos, inscritos, presenças e movimentações. Continuar?");
-    if (!confirmar) return;
-
-    const m = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?id=not.is.null`, {
-        method: "DELETE",
-        headers: headers()
-    });
-
-    if (!m.ok) {
-        alert("Erro ao apagar movimentações:\n" + await m.text());
-        return;
-    }
-
-    const a = await fetch(`${SUPABASE_URL}/rest/v1/presencas?id=not.is.null`, {
-        method: "DELETE",
-        headers: headers()
-    });
-
-    if (!a.ok) {
-        alert("Erro ao apagar presenças:\n" + await a.text());
-        return;
-    }
-
-    const b = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?id=not.is.null`, {
-        method: "DELETE",
-        headers: headers()
-    });
-
-    if (!b.ok) {
-        alert("Erro ao apagar inscritos:\n" + await b.text());
-        return;
-    }
-
-    const c = await fetch(`${SUPABASE_URL}/rest/v1/eventos?id=not.is.null`, {
-        method: "DELETE",
-        headers: headers()
-    });
-
-    if (!c.ok) {
-        alert("Erro ao apagar eventos:\n" + await c.text());
-        return;
-    }
-
-    alert("RESET COMPLETO realizado.");
-
-    document.getElementById("listaPresencas").innerHTML = "";
-    document.getElementById("listaMovimentacoes").innerHTML = "";
-    document.getElementById("totalPresencas").innerText = "Presenças: 0";
-    document.getElementById("eventoSelect").innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
-    EVENTO_ID = "";
-    EVENTO_NOME = "";
-    limparTelaEvento();
-}
-
-carregarEventos();
-
-setInterval(() => {
-    if (EVENTO_ID) {
-        atualizarDashboard();
-        carregarPresencas();
-        carregarMovimentacoes();
-    }
-}, 5000);
 </script>
 
 </body>
