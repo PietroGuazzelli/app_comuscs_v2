@@ -176,6 +176,7 @@ button, select, input {
 </head>
 
 <body>
+
 <section class="hero" aria-label="Capa do congresso COMUSCS">
   <div class="hero-content">
     <p class="hero-kicker">11ª Edição do Congresso Médico Universitário de São Caetano do Sul</p>
@@ -185,12 +186,19 @@ button, select, input {
 </section>
 
 <main class="page-wrapper">
+
 <h2>Check-in COMUSCS</h2>
 
 <label>Evento:</label>
 <select id="eventoSelect" onchange="trocarEvento()">
   <option value="">Carregando eventos...</option>
 </select>
+
+<br>
+
+<button id="btnCamera" onclick="toggleCamera()">
+  Ativar câmera
+</button>
 
 <div id="reader"></div>
 
@@ -219,6 +227,11 @@ button, select, input {
 <button onclick="abrirAdmin()">Área do administrador</button>
 
 <div id="adminArea" style="display:none;" class="admin-box">
+
+  <button onclick="fecharAdmin()" style="background:#6c757d; color:white;">
+    Fechar área do administrador
+  </button>
+
   <h3>Gestão do Evento</h3>
 
   <h4>Criar novo evento</h4>
@@ -248,7 +261,9 @@ button, select, input {
   <button onclick="resetCompleto()" style="background:#dc3545; color:white;">
     RESET COMPLETO
   </button>
+
 </div>
+
 </main>
 
 <script>
@@ -260,6 +275,9 @@ const SENHA_ADMIN = "comuscs2026";
 let processando = false;
 let EVENTO_ID = "";
 let EVENTO_NOME = "";
+
+let html5QrCode = null;
+let cameraAtiva = false;
 
 function headers(extra = {}) {
     return {
@@ -278,6 +296,10 @@ function abrirAdmin() {
     } else {
         alert("Senha incorreta.");
     }
+}
+
+function fecharAdmin() {
+    document.getElementById("adminArea").style.display = "none";
 }
 
 function tocarSom(tipo) {
@@ -304,6 +326,54 @@ function resetarLeitura() {
             processando = false;
         }, 300);
     }, 2500);
+}
+
+async function toggleCamera() {
+    const btn = document.getElementById("btnCamera");
+
+    if (!cameraAtiva) {
+        try {
+            html5QrCode = new Html5Qrcode("reader");
+
+            const cameras = await Html5Qrcode.getCameras();
+
+            if (!cameras || !cameras.length) {
+                alert("Nenhuma câmera encontrada.");
+                return;
+            }
+
+            const cameraId = cameras[0].id;
+
+            await html5QrCode.start(
+                cameraId,
+                { fps: 10, qrbox: 250 },
+                qrCodeMessage => registrarPresenca(qrCodeMessage),
+                errorMessage => {}
+            );
+
+            cameraAtiva = true;
+            btn.innerText = "Desativar câmera";
+
+        } catch (err) {
+            alert("Erro ao iniciar câmera: " + err);
+        }
+
+    } else {
+        try {
+            if (html5QrCode) {
+                await html5QrCode.stop();
+                await html5QrCode.clear();
+            }
+
+            cameraAtiva = false;
+            btn.innerText = "Ativar câmera";
+
+        } catch (err) {
+            console.error("Erro ao parar câmera:", err);
+            cameraAtiva = false;
+            btn.innerText = "Ativar câmera";
+        }
+    }
 }
 
 async function carregarEventos() {
@@ -506,7 +576,7 @@ async function carregarPresencas() {
         tr.innerHTML = `
             <td>${item.inscritos?.nome || ""}</td>
             <td>${item.numero_inscricao || ""}</td>
-            <td>${item.horario_checkin ? new Date(item.horario_checkin).toLocaleTimeString() : ""}</td>
+            <td>${item.horario_checkin ? new Date(item.horario_checkin).toLocaleString("pt-BR") : ""}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -607,16 +677,37 @@ async function registrarPresenca(qrCodeMessage) {
     resetarLeitura();
 }
 
-function exportarExcel() {
-    const tabela = document.getElementById("listaPresencas");
-    const linhas = Array.from(tabela.querySelectorAll("tr")).map(tr => {
-        const tds = tr.querySelectorAll("td");
-        return {
-            Nome: tds[0]?.innerText || "",
-            Inscricao: tds[1]?.innerText || "",
-            Horario: tds[2]?.innerText || ""
-        };
-    });
+async function exportarExcel() {
+    if (!EVENTO_ID) {
+        alert("Selecione um evento primeiro.");
+        return;
+    }
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,horario_checkin,inscritos(nome)&order=horario_checkin.desc`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        const erro = await res.text();
+        alert("Erro ao buscar presenças para exportar:\n" + erro);
+        return;
+    }
+
+    const dados = await res.json();
+
+    if (!dados.length) {
+        alert("Nenhuma presença registrada para este evento.");
+        return;
+    }
+
+    const linhas = dados.map(item => ({
+        Nome: item.inscritos?.nome || "",
+        Inscricao: item.numero_inscricao || "",
+        Horario: item.horario_checkin
+            ? new Date(item.horario_checkin).toLocaleString("pt-BR")
+            : ""
+    }));
 
     const ws = XLSX.utils.json_to_sheet(linhas);
     const wb = XLSX.utils.book_new();
@@ -676,22 +767,6 @@ async function resetCompleto() {
         alert("Erro no reset completo.");
     }
 }
-
-const html5QrCode = new Html5Qrcode("reader");
-
-Html5Qrcode.getCameras().then(cameras => {
-    if (cameras && cameras.length) {
-        const cameraId = cameras[0].id;
-        html5QrCode.start(
-            cameraId,
-            { fps: 10, qrbox: 250 },
-            qrCodeMessage => registrarPresenca(qrCodeMessage),
-            errorMessage => {}
-        );
-    }
-}).catch(err => {
-    alert("Erro ao acessar câmera: " + err);
-});
 
 carregarEventos();
 </script>
