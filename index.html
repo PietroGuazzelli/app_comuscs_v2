@@ -16,9 +16,7 @@
     --brand-accent: #0e6cc4;
 }
 
-* {
-    box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
     font-family: Arial, sans-serif;
@@ -96,27 +94,13 @@ body {
     font-size: 22px;
 }
 
-.ok {
-    color: green;
-    font-weight: bold;
-}
+.ok { color: green; font-weight: bold; }
+.erro { color: red; font-weight: bold; }
 
-.erro {
-    color: red;
-    font-weight: bold;
-}
+body.ok-bg { background-color: #d4edda; }
+body.erro-bg { background-color: #f8d7da; }
 
-body.ok-bg {
-    background-color: #d4edda;
-}
-
-body.erro-bg {
-    background-color: #f8d7da;
-}
-
-#resultado {
-    transition: opacity 0.3s;
-}
+#resultado { transition: opacity 0.3s; }
 
 table {
     width: 100%;
@@ -130,9 +114,7 @@ th, td {
     border: 1px solid #ccc;
 }
 
-th {
-    background-color: #f2f2f2;
-}
+th { background-color: #f2f2f2; }
 
 button, select, input {
     padding: 10px;
@@ -147,9 +129,7 @@ button, select, input {
 }
 
 @media (max-width: 768px) {
-    body {
-        padding: 0 12px 12px;
-    }
+    body { padding: 0 12px 12px; }
 
     .hero {
         margin: 0 -12px 16px;
@@ -157,9 +137,7 @@ button, select, input {
         padding: 24px 14px;
     }
 
-    .result {
-        font-size: 18px;
-    }
+    .result { font-size: 18px; }
 
     button, select, input {
         width: 100%;
@@ -196,9 +174,7 @@ button, select, input {
 
 <br>
 
-<button id="btnCamera" onclick="toggleCamera()">
-  Ativar câmera
-</button>
+<button id="btnCamera" onclick="toggleCamera()">Ativar câmera</button>
 
 <div id="reader"></div>
 
@@ -762,7 +738,9 @@ async function limparEventoAtual() {
         alert("Evento limpo com sucesso.");
         carregarPresencas();
     } else {
-        alert("Erro ao limpar evento.");
+        const erro1 = !r1.ok ? await r1.text() : "";
+        const erro2 = !r2.ok ? await r2.text() : "";
+        alert("Erro ao limpar evento:\n" + erro1 + "\n" + erro2);
     }
 }
 
@@ -776,20 +754,43 @@ async function resetCompleto() {
     const confirmar = confirm("ATENÇÃO: Isso vai apagar TODOS os eventos, inscritos e presenças. Continuar?");
     if (!confirmar) return;
 
-    const a = await fetch(`${SUPABASE_URL}/rest/v1/presencas`, { method: "DELETE", headers: headers() });
-    const b = await fetch(`${SUPABASE_URL}/rest/v1/inscritos`, { method: "DELETE", headers: headers() });
-    const c = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, { method: "DELETE", headers: headers() });
+    const a = await fetch(`${SUPABASE_URL}/rest/v1/presencas?id=not.is.null`, {
+        method: "DELETE",
+        headers: headers()
+    });
 
-    if (a.ok && b.ok && c.ok) {
-        alert("RESET COMPLETO realizado.");
-        document.getElementById("listaPresencas").innerHTML = "";
-        document.getElementById("totalPresencas").innerText = "Presenças: 0";
-        document.getElementById("eventoSelect").innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
-        EVENTO_ID = "";
-        EVENTO_NOME = "";
-    } else {
-        alert("Erro no reset completo.");
+    if (!a.ok) {
+        alert("Erro ao apagar presenças:\n" + await a.text());
+        return;
     }
+
+    const b = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?id=not.is.null`, {
+        method: "DELETE",
+        headers: headers()
+    });
+
+    if (!b.ok) {
+        alert("Erro ao apagar inscritos:\n" + await b.text());
+        return;
+    }
+
+    const c = await fetch(`${SUPABASE_URL}/rest/v1/eventos?id=not.is.null`, {
+        method: "DELETE",
+        headers: headers()
+    });
+
+    if (!c.ok) {
+        alert("Erro ao apagar eventos:\n" + await c.text());
+        return;
+    }
+
+    alert("RESET COMPLETO realizado.");
+
+    document.getElementById("listaPresencas").innerHTML = "";
+    document.getElementById("totalPresencas").innerText = "Presenças: 0";
+    document.getElementById("eventoSelect").innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
+    EVENTO_ID = "";
+    EVENTO_NOME = "";
 }
 
 carregarEventos();
