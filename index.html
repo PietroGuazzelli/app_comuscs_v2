@@ -205,6 +205,18 @@ button, select, input {
   <option value="">Carregando eventos...</option>
 </select>
 
+<br>
+
+<button id="btnCamera" onclick="toggleCamera()">Ativar câmera</button>
+
+<button id="btnTrocarCamera" onclick="trocarCamera()" style="display:none;">
+  Alternar câmera
+</button>
+
+<div id="reader"></div>
+
+<div class="result" id="resultado"></div>
+
 <div class="dashboard">
     <h3>📊 Resumo do evento</h3>
 
@@ -227,14 +239,6 @@ button, select, input {
 
     <button onclick="verInscritos()">Ver inscritos importados</button>
 </div>
-
-<br>
-
-<button id="btnCamera" onclick="toggleCamera()">Ativar câmera</button>
-
-<div id="reader"></div>
-
-<div class="result" id="resultado"></div>
 
 <audio id="som-ok" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
 <audio id="som-erro" src="https://actions.google.com/sounds/v1/cartoon/boing.ogg"></audio>
@@ -310,6 +314,8 @@ let EVENTO_NOME = "";
 
 let html5QrCode = null;
 let cameraAtiva = false;
+let camerasDisponiveis = [];
+let cameraIndexAtual = 0;
 
 function headers(extra = {}) {
     return {
@@ -360,51 +366,88 @@ function resetarLeitura() {
     }, 2500);
 }
 
-async function toggleCamera() {
+async function iniciarCamera() {
     const btn = document.getElementById("btnCamera");
+    const btnTrocar = document.getElementById("btnTrocarCamera");
 
-    if (!cameraAtiva) {
-        try {
-            html5QrCode = new Html5Qrcode("reader");
+    if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
+    }
 
-            const cameras = await Html5Qrcode.getCameras();
+    if (!camerasDisponiveis.length) {
+        camerasDisponiveis = await Html5Qrcode.getCameras();
+    }
 
-            if (!cameras || !cameras.length) {
-                alert("Nenhuma câmera encontrada.");
-                return;
-            }
+    if (!camerasDisponiveis || !camerasDisponiveis.length) {
+        alert("Nenhuma câmera encontrada.");
+        return;
+    }
 
-            const cameraId = cameras[0].id;
+    const cameraId = camerasDisponiveis[cameraIndexAtual].id;
 
-            await html5QrCode.start(
-                cameraId,
-                { fps: 10, qrbox: 250 },
-                qrCodeMessage => registrarPresenca(qrCodeMessage),
-                errorMessage => {}
-            );
+    await html5QrCode.start(
+        cameraId,
+        { fps: 10, qrbox: 250 },
+        qrCodeMessage => registrarPresenca(qrCodeMessage),
+        errorMessage => {}
+    );
 
-            cameraAtiva = true;
-            btn.innerText = "Desativar câmera";
+    cameraAtiva = true;
+    btn.innerText = "Desativar câmera";
 
-        } catch (err) {
-            alert("Erro ao iniciar câmera: " + err);
+    if (camerasDisponiveis.length > 1) {
+        btnTrocar.style.display = "inline-block";
+    }
+}
+
+async function pararCamera() {
+    const btn = document.getElementById("btnCamera");
+    const btnTrocar = document.getElementById("btnTrocarCamera");
+
+    if (html5QrCode && cameraAtiva) {
+        await html5QrCode.stop();
+        await html5QrCode.clear();
+    }
+
+    cameraAtiva = false;
+    btn.innerText = "Ativar câmera";
+    btnTrocar.style.display = "none";
+}
+
+async function toggleCamera() {
+    try {
+        if (!cameraAtiva) {
+            await iniciarCamera();
+        } else {
+            await pararCamera();
+        }
+    } catch (err) {
+        alert("Erro na câmera: " + err);
+    }
+}
+
+async function trocarCamera() {
+    try {
+        if (!camerasDisponiveis.length) {
+            camerasDisponiveis = await Html5Qrcode.getCameras();
         }
 
-    } else {
-        try {
-            if (html5QrCode) {
-                await html5QrCode.stop();
-                await html5QrCode.clear();
-            }
-
-            cameraAtiva = false;
-            btn.innerText = "Ativar câmera";
-
-        } catch (err) {
-            console.error("Erro ao parar câmera:", err);
-            cameraAtiva = false;
-            btn.innerText = "Ativar câmera";
+        if (camerasDisponiveis.length <= 1) {
+            alert("Só há uma câmera disponível.");
+            return;
         }
+
+        if (cameraAtiva && html5QrCode) {
+            await html5QrCode.stop();
+            await html5QrCode.clear();
+        }
+
+        cameraIndexAtual = (cameraIndexAtual + 1) % camerasDisponiveis.length;
+
+        await iniciarCamera();
+
+    } catch (err) {
+        alert("Erro ao alternar câmera: " + err);
     }
 }
 
