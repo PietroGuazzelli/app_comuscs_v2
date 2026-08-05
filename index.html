@@ -159,6 +159,17 @@ button, select, input {
     border-radius: 8px;
 }
 
+.import-status {
+    max-width: 800px;
+    margin: 10px auto;
+    padding: 12px;
+    border-radius: 8px;
+    background: #eef5fc;
+    color: #0b2f55;
+    text-align: left;
+    white-space: pre-line;
+}
+
 @media (max-width: 768px) {
     body { padding: 0 12px 12px; }
 
@@ -292,6 +303,19 @@ button, select, input {
   </button>
 
   <h3>Gestão do Evento</h3>
+
+  <h4>Importar Excel completo do Even3</h4>
+  <p>
+    Selecione a planilha <strong>Lista Inscritos</strong>. O app criará ou atualizará
+    automaticamente todas as atividades e seus respectivos participantes.
+  </p>
+  <input type="file" id="excelEven3Input" accept=".xlsx,.xls">
+  <button id="btnImportarExcelEven3" onclick="importarExcelEven3()">
+    Importar atividades e participantes
+  </button>
+  <div id="importacaoEven3Status" class="import-status" style="display:none;"></div>
+
+  <hr>
 
   <h4>Criar novo evento</h4>
   <input id="novoEventoNome" placeholder="Nome do evento">
@@ -592,6 +616,272 @@ function obterCampo(row, possibilidades) {
     }
 
     return "";
+}
+
+function definirStatusImportacao(mensagem, tipo = "info") {
+    const status = document.getElementById("importacaoEven3Status");
+    status.style.display = "block";
+    status.textContent = mensagem;
+    status.style.background = tipo === "erro" ? "#f8d7da" :
+        tipo === "ok" ? "#d4edda" : "#eef5fc";
+    status.style.color = tipo === "erro" ? "#842029" :
+        tipo === "ok" ? "#0f5132" : "#0b2f55";
+}
+
+function analisarLinhasEven3(rows) {
+    const obrigatorios = ["Id", "Atividade", "Id do participante", "Nome"];
+    const cabecalhos = Object.keys(rows[0] || {}).map(normalizarTexto);
+    const faltantes = obrigatorios.filter(campo => !cabecalhos.includes(normalizarTexto(campo)));
+
+    if (faltantes.length) {
+        throw new Error(`Colunas obrigatórias não encontradas: ${faltantes.join(", ")}.`);
+    }
+
+    const registros = [];
+    const atividades = new Map();
+    let linhasIgnoradas = 0;
+
+    rows.forEach(row => {
+        const atividadeId = obterCampo(row, ["Id", "ID da atividade", "Id atividade"]);
+        const atividadeNome = obterCampo(row, ["Atividade", "Nome da atividade"]);
+        const participanteId = obterCampo(row, ["Id do participante", "ID participante"]);
+        const nome = obterCampo(row, ["Nome", "Nome do participante", "Participante"]);
+        const email = obterCampo(row, ["Email", "E-mail"]);
+        const documento = obterCampo(row, ["Documento", "CPF"]);
+        const inscricaoEvento = obterCampo(row, ["Inscrição no evento", "Inscricao no evento"]);
+
+        const atividadePareceNome = atividadeNome && !/^\d+$/.test(atividadeNome);
+        const participantePareceNome = nome && !/^\d+$/.test(nome);
+        const idsValidos = /^\d{3,}$/.test(atividadeId) && /^\d{3,}$/.test(participanteId);
+
+        if (!idsValidos || !atividadePareceNome || !participantePareceNome) {
+            linhasIgnoradas++;
+            return;
+        }
+
+        atividades.set(atividadeId, {
+            even3_atividade_id: atividadeId,
+            nome: atividadeNome
+        });
+
+        registros.push({
+            atividadeId,
+            participanteId,
+            nome,
+            email,
+            documento,
+            inscricaoEvento
+        });
+    });
+
+    const registrosUnicos = Array.from(new Map(
+        registros.map(registro => [
+            `${registro.atividadeId}-${registro.participanteId}`,
+            registro
+        ])
+    ).values());
+
+    return {
+        atividades: Array.from(atividades.values()),
+        registros: registrosUnicos,
+        linhasIgnoradas,
+        duplicadosIgnorados: registros.length - registrosUnicos.length
+    };
+}
+
+async function postarEmLotes(tabela, payload, conflito, tamanhoLote = 500) {
+    for (let inicio = 0; inicio < payload.length; inicio += tamanhoLote) {
+        const lote = payload.slice(inicio, inicio + tamanhoLote);
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/${tabela}?on_conflict=${conflito}`,
+            {
+                method: "POST",
+                headers: headers({
+                    "Content-Type": "application/json",
+                    "Prefer": "resolution=merge-duplicates,return=minimal"
+                }),
+                body: JSON.stringify(lote)
+            }
+        );
+
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+    }
+}
+
+async function importarExcelEven3() {
+    const input = document.getElementById("excelEven3Input");
+    const botao = document.getElementById("btnImportarExcelEven3");
+    const arquivo = input.files[0];
+
+    if (!arquivo) {
+        alert("Selecione o arquivo Excel Lista Inscritos do Even3.");
+        return;
+    }
+
+    botao.disabled = true;
+    definirStatusImportacao("Lendo e validando o arquivo...");
+
+    try {
+        const dadosArquivo = await arquivo.arrayBuffer();
+        const workbook = XLSX.read(dadosArquivo, { type: "array" });
+
+        if (!workbook.SheetNames.length) {
+            throw new Error("O arquivo não possui nenhuma planilha.");
+        }
+
+        const primeiraAba = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(primeiraAba, {
+            defval: "",
+            raw: false
+        });
+
+        if (!rows.length) {
+            throw new Error("A planilha está vazia.");
+        }
+
+        const analise = analisarLinhasEven3(rows);
+
+        if (!analise.atividades.length || !analise.registros.length) {
+            throw new Error("Nenhuma atividade ou inscrição válida foi encontrada.");
+        }
+
+        const resumoAtividades = analise.atividades
+            .map(atividade => {
+                const total = analise.registros.filter(r =>
+                    r.atividadeId === atividade.even3_atividade_id
+                ).length;
+                return `• ${atividade.nome}: ${total} participante(s)`;
+            })
+            .join("\n");
+
+        const confirmar = confirm(
+            `Prévia da importação:\n\n` +
+            `${analise.atividades.length} atividade(s)\n` +
+            `${analise.registros.length} inscrição(ões) válida(s)\n` +
+            `${analise.linhasIgnoradas} linha(s) inválida(s) ignorada(s)\n` +
+            `${analise.duplicadosIgnorados} duplicidade(s) ignorada(s)\n\n` +
+            `${resumoAtividades}\n\n` +
+            `Deseja criar/atualizar esses dados no aplicativo?`
+        );
+
+        if (!confirmar) {
+            definirStatusImportacao("Importação cancelada. Nenhum dado foi gravado.");
+            return;
+        }
+
+        definirStatusImportacao("Criando e atualizando as atividades...");
+
+        const resEventosExistentes = await fetch(
+            `${SUPABASE_URL}/rest/v1/eventos?select=id,nome,even3_atividade_id`,
+            { headers: headers() }
+        );
+
+        if (!resEventosExistentes.ok) {
+            throw new Error(await resEventosExistentes.text());
+        }
+
+        const eventosExistentes = await resEventosExistentes.json();
+        const atividadesJaVinculadas = new Set(
+            eventosExistentes
+                .filter(evento => evento.even3_atividade_id)
+                .map(evento => String(evento.even3_atividade_id))
+        );
+
+        for (const atividade of analise.atividades) {
+            if (atividadesJaVinculadas.has(atividade.even3_atividade_id)) continue;
+
+            const candidatos = eventosExistentes.filter(evento =>
+                !evento.even3_atividade_id &&
+                normalizarTexto(evento.nome) === normalizarTexto(atividade.nome)
+            );
+
+            if (candidatos.length === 1) {
+                const resVinculo = await fetch(
+                    `${SUPABASE_URL}/rest/v1/eventos?id=eq.${encodeURIComponent(candidatos[0].id)}`,
+                    {
+                        method: "PATCH",
+                        headers: headers({ "Content-Type": "application/json" }),
+                        body: JSON.stringify({
+                            nome: atividade.nome,
+                            even3_atividade_id: atividade.even3_atividade_id
+                        })
+                    }
+                );
+
+                if (!resVinculo.ok) {
+                    throw new Error(await resVinculo.text());
+                }
+            }
+        }
+
+        await postarEmLotes(
+            "eventos",
+            analise.atividades,
+            "even3_atividade_id"
+        );
+
+        const filtroIds = `(${analise.atividades
+            .map(atividade => atividade.even3_atividade_id)
+            .join(",")})`;
+        const resEventos = await fetch(
+            `${SUPABASE_URL}/rest/v1/eventos?even3_atividade_id=in.${encodeURIComponent(filtroIds)}` +
+            `&select=id,nome,even3_atividade_id`,
+            { headers: headers() }
+        );
+
+        if (!resEventos.ok) {
+            throw new Error(await resEventos.text());
+        }
+
+        const eventosSalvos = await resEventos.json();
+        const eventoPorIdEven3 = new Map(
+            eventosSalvos.map(evento => [String(evento.even3_atividade_id), evento.id])
+        );
+
+        if (eventoPorIdEven3.size !== analise.atividades.length) {
+            throw new Error("Nem todas as atividades puderam ser recuperadas após a gravação.");
+        }
+
+        definirStatusImportacao("Importando os participantes de cada atividade...");
+        const participantes = analise.registros.map(registro => ({
+            evento_id: eventoPorIdEven3.get(registro.atividadeId),
+            nome: registro.nome,
+            numero_inscricao: registro.participanteId,
+            even3_participante_id: registro.participanteId,
+            email: registro.email || null,
+            documento: registro.documento || null,
+            inscricao_evento: registro.inscricaoEvento || null
+        }));
+
+        await postarEmLotes(
+            "inscritos",
+            participantes,
+            "evento_id,numero_inscricao"
+        );
+
+        definirStatusImportacao(
+            `Importação concluída com sucesso!\n` +
+            `${analise.atividades.length} atividade(s) criada(s)/atualizada(s).\n` +
+            `${participantes.length} inscrição(ões) criada(s)/atualizada(s).\n` +
+            `${analise.linhasIgnoradas} linha(s) inválida(s) ignorada(s).`,
+            "ok"
+        );
+
+        input.value = "";
+        await carregarEventos();
+
+    } catch (err) {
+        console.error("Erro na importação Even3:", err);
+        definirStatusImportacao(
+            `Erro ao importar: ${err.message}\n\n` +
+            `Se esta for a primeira utilização da nova planilha, confira se a atualização do Supabase foi executada.`,
+            "erro"
+        );
+    } finally {
+        botao.disabled = false;
+    }
 }
 
 async function importarCSV() {
