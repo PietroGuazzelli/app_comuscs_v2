@@ -302,6 +302,11 @@ button, select, input {
     Fechar área do administrador
   </button>
 
+  <p style="margin:12px 0; padding:8px; background:#e8f5e9; color:#1b5e20; border-radius:6px;">
+    <strong>Versão 2026-08-05.2 — dados acadêmicos</strong><br>
+    Importação por duas planilhas e exportação com CPF, e-mail institucional e RA/matrícula.
+  </p>
+
   <h3>Gestão do Evento</h3>
 
   <h4>Importar planilhas do Even3</h4>
@@ -605,15 +610,102 @@ function normalizarTexto(valor) {
         .trim();
 }
 
+function normalizarCabecalho(valor) {
+    return normalizarTexto(valor)
+        .replace(/\be[\s_-]*mail\b/g, "email")
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+const CAMPOS_EVEN3 = Object.freeze({
+    atividadeId: [
+        "Id",
+        "ID da atividade",
+        "Id atividade",
+        "Código da atividade",
+        "Codigo da atividade"
+    ],
+    atividadeNome: [
+        "Atividade",
+        "Nome da atividade",
+        "Título da atividade",
+        "Titulo da atividade"
+    ],
+    participanteId: [
+        "ID",
+        "Id do participante",
+        "ID participante",
+        "Código do participante",
+        "Codigo do participante"
+    ],
+    nome: [
+        "Nome",
+        "Nome do participante",
+        "Nome completo",
+        "Participante"
+    ],
+    email: [
+        "E-mail",
+        "Email",
+        "E-mail do participante",
+        "Email do participante"
+    ],
+    documento: [
+        "Documento",
+        "CPF",
+        "CPF do participante"
+    ],
+    numeroInscricao: [
+        "Número de Inscrição",
+        "Numero de Inscricao",
+        "Número da Inscrição",
+        "Numero da Inscricao",
+        "Nº Inscrição",
+        "N Inscrição",
+        "Inscrição nº",
+        "Inscricao n"
+    ],
+    inscricaoEvento: [
+        "Inscrição no evento",
+        "Inscricao no evento",
+        "Evento da inscrição",
+        "Evento da inscricao"
+    ],
+    emailInstitucional: [
+        "Inserir e-mail USCS",
+        "Inserir email USCS",
+        "E-mail USCS",
+        "Email USCS",
+        "E-mail institucional",
+        "Email institucional",
+        "E-mail institucional USCS",
+        "Email institucional USCS",
+        "E-mail acadêmico",
+        "Email academico"
+    ],
+    raMatricula: [
+        "RA / Matrícula",
+        "RA/Matrícula",
+        "RA",
+        "Matrícula",
+        "Matricula",
+        "Número de matrícula",
+        "Numero de matricula",
+        "Registro acadêmico",
+        "Registro academico"
+    ]
+});
+
 function obterCampo(row, possibilidades) {
     const mapa = {};
 
     Object.keys(row).forEach(chave => {
-        mapa[normalizarTexto(chave)] = row[chave];
+        mapa[normalizarCabecalho(chave)] = row[chave];
     });
 
     for (const nome of possibilidades) {
-        const valor = mapa[normalizarTexto(nome)];
+        const valor = mapa[normalizarCabecalho(nome)];
         if (valor !== undefined && String(valor).trim() !== "") {
             return String(valor).trim();
         }
@@ -627,10 +719,17 @@ function normalizarDocumento(valor) {
 }
 
 function validarCabecalhos(rows, obrigatorios, nomeArquivo) {
-    const cabecalhos = Object.keys(rows[0] || {}).map(normalizarTexto);
-    const faltantes = obrigatorios.filter(campo =>
-        !cabecalhos.includes(normalizarTexto(campo))
+    const cabecalhos = new Set(
+        Object.keys(rows[0] || {}).map(normalizarCabecalho)
     );
+    const grupos = obrigatorios.map(campo =>
+        Array.isArray(campo) ? campo : [campo]
+    );
+    const faltantes = grupos
+        .filter(aliases =>
+            !aliases.some(alias => cabecalhos.has(normalizarCabecalho(alias)))
+        )
+        .map(aliases => aliases[0]);
 
     if (faltantes.length) {
         throw new Error(
@@ -671,7 +770,12 @@ function definirStatusImportacao(mensagem, tipo = "info") {
 }
 
 function analisarLinhasEven3(rows) {
-    const obrigatorios = ["Id", "Atividade", "Id do participante", "Nome"];
+    const obrigatorios = [
+        CAMPOS_EVEN3.atividadeId,
+        CAMPOS_EVEN3.atividadeNome,
+        CAMPOS_EVEN3.participanteId.slice(1),
+        CAMPOS_EVEN3.nome
+    ];
     validarCabecalhos(rows, obrigatorios, "Lista Inscritos");
 
     const registros = [];
@@ -679,13 +783,13 @@ function analisarLinhasEven3(rows) {
     let linhasIgnoradas = 0;
 
     rows.forEach(row => {
-        const atividadeId = obterCampo(row, ["Id", "ID da atividade", "Id atividade"]);
-        const atividadeNome = obterCampo(row, ["Atividade", "Nome da atividade"]);
-        const participanteId = obterCampo(row, ["Id do participante", "ID participante"]);
-        const nome = obterCampo(row, ["Nome", "Nome do participante", "Participante"]);
-        const email = obterCampo(row, ["Email", "E-mail"]);
-        const documento = obterCampo(row, ["Documento", "CPF"]);
-        const inscricaoEvento = obterCampo(row, ["Inscrição no evento", "Inscricao no evento"]);
+        const atividadeId = obterCampo(row, CAMPOS_EVEN3.atividadeId);
+        const atividadeNome = obterCampo(row, CAMPOS_EVEN3.atividadeNome);
+        const participanteId = obterCampo(row, CAMPOS_EVEN3.participanteId.slice(1));
+        const nome = obterCampo(row, CAMPOS_EVEN3.nome);
+        const email = obterCampo(row, CAMPOS_EVEN3.email);
+        const documento = obterCampo(row, CAMPOS_EVEN3.documento);
+        const inscricaoEvento = obterCampo(row, CAMPOS_EVEN3.inscricaoEvento);
 
         const atividadePareceNome = atividadeNome && !/^\d+$/.test(atividadeNome);
         const participantePareceNome = nome && !/^\d+$/.test(nome);
@@ -729,7 +833,11 @@ function analisarLinhasEven3(rows) {
 function analisarListaParticipantes(rows) {
     validarCabecalhos(
         rows,
-        ["ID", "Número de Inscrição", "Documento"],
+        [
+            CAMPOS_EVEN3.participanteId,
+            CAMPOS_EVEN3.numeroInscricao,
+            CAMPOS_EVEN3.documento
+        ],
         "ListaParticipante"
     );
 
@@ -741,15 +849,16 @@ function analisarListaParticipantes(rows) {
     let duplicadosIgnorados = 0;
 
     rows.forEach((row, indice) => {
-        const participanteId = obterCampo(row, ["ID", "Id do participante"]);
-        const numeroInscricao = obterCampo(row, [
-            "Número de Inscrição",
-            "Numero de Inscricao",
-            "Número da Inscrição"
-        ]);
-        const nome = obterCampo(row, ["Nome", "Nome do participante"]);
-        const email = obterCampo(row, ["E-mail", "Email"]);
-        const documento = obterCampo(row, ["Documento", "CPF"]);
+        const participanteId = obterCampo(row, CAMPOS_EVEN3.participanteId);
+        const numeroInscricao = obterCampo(row, CAMPOS_EVEN3.numeroInscricao);
+        const nome = obterCampo(row, CAMPOS_EVEN3.nome);
+        const email = obterCampo(row, CAMPOS_EVEN3.email);
+        const documento = obterCampo(row, CAMPOS_EVEN3.documento);
+        const emailInstitucional = obterCampo(
+            row,
+            CAMPOS_EVEN3.emailInstitucional
+        );
+        const raMatricula = obterCampo(row, CAMPOS_EVEN3.raMatricula);
 
         if (!/^\d{3,}$/.test(participanteId) || !nome || /^\d+$/.test(nome)) {
             linhasIgnoradas++;
@@ -765,7 +874,9 @@ function analisarListaParticipantes(rows) {
             numeroInscricao: /^\d{3,}$/.test(numeroInscricao) ? numeroInscricao : "",
             nome,
             email,
-            documento
+            documento,
+            emailInstitucional,
+            raMatricula
         };
 
         const anterior = participantesPorId.get(participanteId);
@@ -776,8 +887,15 @@ function analisarListaParticipantes(rows) {
             const documentoAtual = normalizarDocumento(participante.documento);
             const documentoConflitante = documentoAnterior && documentoAtual &&
                 documentoAnterior !== documentoAtual;
+            const raConflitante = anterior.raMatricula && participante.raMatricula &&
+                normalizarTexto(anterior.raMatricula) !== normalizarTexto(participante.raMatricula);
+            const emailInstitucionalConflitante = anterior.emailInstitucional &&
+                participante.emailInstitucional &&
+                normalizarTexto(anterior.emailInstitucional) !==
+                    normalizarTexto(participante.emailInstitucional);
 
-            if (numeroConflitante || documentoConflitante) {
+            if (numeroConflitante || documentoConflitante || raConflitante ||
+                emailInstitucionalConflitante) {
                 conflitos.push(
                     `linha ${indice + 2}: ID ${participanteId} aparece com dados diferentes`
                 );
@@ -794,9 +912,19 @@ function analisarListaParticipantes(rows) {
                     );
                     return;
                 }
-                participantesPorId.set(participanteId, participante);
                 numeroParaId.set(participante.numeroInscricao, participanteId);
             }
+
+            participantesPorId.set(participanteId, {
+                participanteId,
+                numeroInscricao: anterior.numeroInscricao || participante.numeroInscricao,
+                nome: anterior.nome || participante.nome,
+                email: anterior.email || participante.email,
+                documento: anterior.documento || participante.documento,
+                emailInstitucional: anterior.emailInstitucional ||
+                    participante.emailInstitucional,
+                raMatricula: anterior.raMatricula || participante.raMatricula
+            });
             return;
         }
 
@@ -867,7 +995,9 @@ function cruzarPlanilhasEven3(rowsInscritos, rowsParticipantes) {
             numeroInscricao: participante.numeroInscricao,
             nome: registro.nome || participante.nome,
             email: registro.email || participante.email,
-            documento: registro.documento || participante.documento
+            documento: registro.documento || participante.documento,
+            emailInstitucional: participante.emailInstitucional,
+            raMatricula: participante.raMatricula
         });
     });
 
@@ -887,6 +1017,9 @@ function cruzarPlanilhasEven3(rowsInscritos, rowsParticipantes) {
             registro
         ])
     ).values());
+    const participantesUnicos = Array.from(new Map(
+        registrosUnicos.map(registro => [registro.participanteId, registro])
+    ).values());
 
     return {
         atividades: atividades.atividades,
@@ -895,6 +1028,12 @@ function cruzarPlanilhasEven3(rowsInscritos, rowsParticipantes) {
         linhasParticipantesIgnoradas: participantes.linhasIgnoradas,
         participantesSemCorrespondencia: semCorrespondencia,
         participantesSemNumero: semNumeroInscricao,
+        participantesSemEmailInstitucional: participantesUnicos.filter(
+            participante => !participante.emailInstitucional
+        ).length,
+        participantesSemRaMatricula: participantesUnicos.filter(
+            participante => !participante.raMatricula
+        ).length,
         duplicadosIgnorados: atividades.duplicadosIgnorados +
             participantes.duplicadosIgnorados +
             (registros.length - registrosUnicos.length)
@@ -1084,6 +1223,8 @@ async function importarExcelEven3() {
             `${analise.registros.length} inscrição(ões) cruzada(s) pelo ID do participante\n` +
             `${analise.participantesSemCorrespondencia.length} vínculo(s) sem correspondência na ListaParticipante\n` +
             `${analise.participantesSemNumero.length} vínculo(s) sem Número de inscrição\n` +
+            `${analise.participantesSemEmailInstitucional} participante(s) sem e-mail institucional\n` +
+            `${analise.participantesSemRaMatricula} participante(s) sem RA/matrícula\n` +
             `${analise.linhasInscritosIgnoradas} linha(s) inválida(s) da Lista Inscritos ignorada(s)\n` +
             `${analise.linhasParticipantesIgnoradas} linha(s) inválida(s) da ListaParticipante ignorada(s)\n` +
             `${analise.duplicadosIgnorados} duplicidade(s) ignorada(s)\n\n` +
@@ -1177,7 +1318,9 @@ async function importarExcelEven3() {
             even3_participante_id: registro.participanteId,
             email: registro.email || null,
             documento: registro.documento || null,
-            inscricao_evento: registro.inscricaoEvento || null
+            inscricao_evento: registro.inscricaoEvento || null,
+            email_institucional: registro.emailInstitucional || null,
+            ra_matricula: registro.raMatricula || null
         }));
 
         const resultadoGravacao = await salvarParticipantesEven3(participantes);
@@ -1188,7 +1331,9 @@ async function importarExcelEven3() {
             `${resultadoGravacao.criados} inscrição(ões) criada(s).\n` +
             `${resultadoGravacao.atualizados} inscrição(ões) atualizada(s).\n` +
             `${analise.participantesSemCorrespondencia.length + analise.participantesSemNumero.length} ` +
-            `vínculo(s) sem Número de inscrição ignorado(s).`,
+            `vínculo(s) sem Número de inscrição ignorado(s).\n` +
+            `${analise.participantesSemEmailInstitucional} participante(s) sem e-mail institucional.\n` +
+            `${analise.participantesSemRaMatricula} participante(s) sem RA/matrícula.`,
             "ok"
         );
 
@@ -1622,7 +1767,9 @@ async function exportarExcel() {
     }
 
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,horario_checkin,inscritos(nome)&order=horario_checkin.desc`,
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}` +
+        `&select=numero_inscricao,horario_checkin,inscritos(nome,numero_inscricao,documento,email_institucional,ra_matricula)` +
+        `&order=horario_checkin.desc`,
         { headers: headers() }
     );
 
@@ -1641,13 +1788,26 @@ async function exportarExcel() {
 
     const linhas = dados.map(item => ({
         Nome: item.inscritos?.nome || "",
-        Inscricao: item.numero_inscricao || "",
-        Horario_Primeira_Entrada: item.horario_checkin
+        "Número de inscrição": item.inscritos?.numero_inscricao ||
+            item.numero_inscricao || "",
+        CPF: item.inscritos?.documento || "",
+        "E-mail institucional": item.inscritos?.email_institucional || "",
+        "RA / Matrícula": item.inscritos?.ra_matricula || "",
+        "Horário da primeira entrada": item.horario_checkin
             ? new Date(item.horario_checkin).toLocaleString("pt-BR")
             : ""
     }));
 
     const ws = XLSX.utils.json_to_sheet(linhas);
+    ws["!cols"] = [
+        { wch: 38 },
+        { wch: 20 },
+        { wch: 18 },
+        { wch: 42 },
+        { wch: 18 },
+        { wch: 26 }
+    ];
+    ws["!autofilter"] = { ref: `A1:F${linhas.length + 1}` };
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Presencas");
     XLSX.writeFile(wb, `presencas_${EVENTO_NOME || "evento"}.xlsx`);
