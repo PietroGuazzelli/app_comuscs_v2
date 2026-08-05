@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-/* Interface 2026-08-05.6 — correção da inicialização da câmera */
+/* Interface 2026-08-05.7 — câmera compatível e relatório geral */
 :root {
     --navy-950: #071a2e;
     --navy-900: #0a2744;
@@ -696,7 +696,7 @@ tbody tr:hover { background: var(--blue-50); }
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-08-05.6</strong>
+        <strong>Versão 2026-08-05.7</strong>
         Interface mobile · dados acadêmicos
       </div>
     </aside>
@@ -783,7 +783,7 @@ tbody tr:hover { background: var(--blue-50); }
         <div class="admin-section-heading">
           <p class="eyebrow">Relatórios</p>
           <h2>Exportar dados</h2>
-          <p>Escolha a atividade que deseja exportar. Essa seleção é independente da tela de leitura.</p>
+          <p>Exporte uma atividade específica ou reúna as presenças de todas as atividades em uma única planilha.</p>
         </div>
         <div class="admin-grid">
           <article class="admin-card admin-card-full">
@@ -793,6 +793,11 @@ tbody tr:hover { background: var(--blue-50); }
             <h4>Presenças em Excel</h4>
             <p class="muted">Nome, inscrição, CPF, e-mail institucional, RA/matrícula e primeira entrada.</p>
             <div class="button-row"><button type="button" class="button-primary" onclick="exportarExcel()">Exportar presenças</button></div>
+          </article>
+          <article class="admin-card admin-action-card">
+            <h4>Todas as presenças em Excel</h4>
+            <p class="muted">Reúne todas as atividades em uma planilha e identifica a atividade na última coluna.</p>
+            <div class="button-row"><button type="button" class="button-primary" onclick="exportarTodasPresencasExcel()">Exportar todas as presenças</button></div>
           </article>
           <article class="admin-card admin-action-card">
             <h4>Movimentações em Excel</h4>
@@ -1015,6 +1020,37 @@ function camerasComIdValido(cameras) {
     );
 }
 
+function indiceCameraTraseira(cameras) {
+    return cameras.findIndex(camera =>
+        /back|rear|environment|traseir|traser/i.test(camera.label || "")
+    );
+}
+
+async function obterFonteCameraInicial() {
+    try {
+        camerasDisponiveis = camerasComIdValido(await Html5Qrcode.getCameras());
+
+        if (camerasDisponiveis.length) {
+            const indiceTraseira = indiceCameraTraseira(camerasDisponiveis);
+            cameraIndexAtual = indiceTraseira >= 0 ? indiceTraseira : 0;
+            return camerasDisponiveis[cameraIndexAtual].id;
+        }
+    } catch (erro) {
+        const nome = erro?.name || "";
+        const mensagem = String(erro?.message || erro || "");
+
+        if (nome === "NotAllowedError" || /permission|permiss[aã]o|denied/i.test(mensagem)) {
+            throw erro;
+        }
+
+        console.warn("Não foi possível obter a lista de câmeras; usando a seleção do navegador:", erro);
+    }
+
+    // O html5-qrcode 2.3.8 aceita facingMode como texto ou com `exact`.
+    // `ideal` não é aceito pelo validador dessa versão.
+    return { facingMode: "environment" };
+}
+
 function mensagemErroCamera(erro) {
     const nome = erro?.name || "";
     const mensagem = String(erro?.message || erro || "");
@@ -1052,9 +1088,7 @@ async function atualizarListaDeCameras(cameraUsada) {
             return;
         }
 
-        const indiceTraseira = camerasDisponiveis.findIndex(camera =>
-            /back|rear|environment|traseir|traser/i.test(camera.label || "")
-        );
+        const indiceTraseira = indiceCameraTraseira(camerasDisponiveis);
         if (indiceTraseira >= 0) cameraIndexAtual = indiceTraseira;
     } catch (erro) {
         console.warn("Não foi possível listar as câmeras para alternância:", erro);
@@ -1074,14 +1108,23 @@ async function iniciarCamera(cameraIdOuConfig = null) {
         html5QrCode = new Html5Qrcode("reader");
     }
 
-    // Na primeira abertura, solicita diretamente a câmera traseira. Alguns
-    // navegadores listam o dispositivo antes da permissão, mas retornam o ID
-    // vazio; enviar esse ID vazio causa "cameraIdOrConfig is required".
-    const fonteCamera = (
-        typeof cameraIdOuConfig === "string" && cameraIdOuConfig.trim() !== ""
-    )
-        ? cameraIdOuConfig
-        : { facingMode: { ideal: "environment" } };
+    let fonteCamera;
+
+    if (typeof cameraIdOuConfig === "string" && cameraIdOuConfig.trim() !== "") {
+        fonteCamera = cameraIdOuConfig.trim();
+    } else if (cameraIdOuConfig && typeof cameraIdOuConfig === "object") {
+        const facingMode = cameraIdOuConfig.facingMode;
+
+        if (typeof facingMode === "string") {
+            fonteCamera = { facingMode };
+        } else if (facingMode && typeof facingMode.exact === "string") {
+            fonteCamera = { facingMode: { exact: facingMode.exact } };
+        } else {
+            fonteCamera = await obterFonteCameraInicial();
+        }
+    } else {
+        fonteCamera = await obterFonteCameraInicial();
+    }
 
     await html5QrCode.start(
         fonteCamera,
@@ -2477,6 +2520,96 @@ async function exportarExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Presencas");
     XLSX.writeFile(wb, `presencas_${atividade.nome || "atividade"}.xlsx`);
+}
+
+async function buscarTodasPresencas() {
+    const tamanhoLote = 1000;
+    const registros = [];
+    let deslocamento = 0;
+
+    while (true) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/presencas?` +
+            `select=evento_id,numero_inscricao,horario_checkin,inscritos(nome,numero_inscricao,documento,email_institucional,ra_matricula)` +
+            `&order=horario_checkin.asc&limit=${tamanhoLote}&offset=${deslocamento}`,
+            { headers: headers() }
+        );
+
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+
+        const lote = await res.json();
+        registros.push(...lote);
+
+        if (lote.length < tamanhoLote) break;
+        deslocamento += tamanhoLote;
+    }
+
+    return registros;
+}
+
+async function exportarTodasPresencasExcel() {
+    try {
+        const [dados, resEventos] = await Promise.all([
+            buscarTodasPresencas(),
+            fetch(
+                `${SUPABASE_URL}/rest/v1/eventos?select=id,nome&order=nome.asc`,
+                { headers: headers() }
+            )
+        ]);
+
+        if (!resEventos.ok) {
+            throw new Error(await resEventos.text());
+        }
+
+        if (!dados.length) {
+            alert("Nenhuma presença registrada nas atividades.");
+            return;
+        }
+
+        const eventos = await resEventos.json();
+        const nomeEventoPorId = new Map(
+            eventos.map(evento => [String(evento.id), evento.nome || ""])
+        );
+
+        const linhas = dados.map(item => ({
+            Nome: item.inscritos?.nome || "",
+            "Número de inscrição": item.inscritos?.numero_inscricao ||
+                item.numero_inscricao || "",
+            CPF: item.inscritos?.documento || "",
+            "E-mail institucional": item.inscritos?.email_institucional || "",
+            "RA / Matrícula": item.inscritos?.ra_matricula || "",
+            "Horário da primeira entrada": item.horario_checkin
+                ? new Date(item.horario_checkin).toLocaleString("pt-BR")
+                : "",
+            Atividade: nomeEventoPorId.get(String(item.evento_id)) || "Atividade não encontrada"
+        }));
+
+        linhas.sort((a, b) =>
+            a.Atividade.localeCompare(b.Atividade, "pt-BR") ||
+            a.Nome.localeCompare(b.Nome, "pt-BR")
+        );
+
+        const ws = XLSX.utils.json_to_sheet(linhas);
+        ws["!cols"] = [
+            { wch: 38 },
+            { wch: 20 },
+            { wch: 18 },
+            { wch: 42 },
+            { wch: 18 },
+            { wch: 26 },
+            { wch: 52 }
+        ];
+        ws["!autofilter"] = { ref: `A1:G${linhas.length + 1}` };
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Todas as presencas");
+        XLSX.writeFile(wb, "presencas_todas_atividades.xlsx");
+    } catch (erro) {
+        console.error("Erro ao exportar todas as presenças:", erro);
+        alert("Erro ao buscar todas as presenças para exportar:\n" + erro.message);
+    }
 }
 
 async function exportarMovimentacoesExcel() {
