@@ -3,198 +3,564 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Check-in COMUSCS</title>
+<title>Check-in COMUSCS — Interface 2026</title>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
+/* Interface 2026-08-05.6 — correção da inicialização da câmera */
 :root {
-    --brand-blue: #0e3a69;
-    --brand-blue-2: #0b2f55;
-    --brand-accent: #0e6cc4;
+    --navy-950: #071a2e;
+    --navy-900: #0a2744;
+    --blue-800: #0d477d;
+    --blue-700: #1262a3;
+    --blue-600: #1976bd;
+    --blue-100: #dceefe;
+    --blue-50: #eff7ff;
+    --orange-600: #e85d0f;
+    --orange-500: #f47721;
+    --orange-100: #ffeadc;
+    --ink-900: #132238;
+    --ink-700: #405269;
+    --ink-500: #718096;
+    --line: #dce5ef;
+    --surface: #fff;
+    --canvas: #f3f7fb;
+    --success: #16835b;
+    --success-soft: #e7f7f0;
+    --warning: #a85d00;
+    --warning-soft: #fff4df;
+    --danger: #c83a43;
+    --danger-soft: #fff0f1;
+    --shadow-sm: 0 1px 3px rgba(7, 26, 46, .08);
+    --shadow-md: 0 14px 36px rgba(7, 26, 46, .11);
+    --radius-sm: 10px;
+    --radius-md: 16px;
 }
 
 * { box-sizing: border-box; }
 
+html { scroll-behavior: smooth; }
+
 body {
-    font-family: Arial, sans-serif;
-    text-align: center;
+    min-height: 100vh;
     margin: 0;
-    padding: 0 20px 20px;
-    transition: background-color 0.3s;
+    padding: 0;
+    color: var(--ink-900);
+    background: var(--canvas);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    text-align: left;
+    transition: background-color .25s ease;
 }
 
+body.admin-open { overflow: hidden; }
+
 .page-wrapper {
-    width: min(1100px, 100%);
+    width: min(960px, calc(100% - 32px));
     margin: 0 auto;
+    padding: 28px 0 44px;
 }
 
 .hero {
     position: relative;
-    margin: 0 -20px 20px;
-    min-height: 240px;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    text-align: left;
+    min-height: 250px;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
-    padding: 30px 20px;
+    color: #fff;
     background:
-        linear-gradient(rgba(10, 43, 77, 0.88), rgba(10, 43, 77, 0.88)),
-        url("IMAGEM EVEN3 OFICIAL.jpeg") center/cover no-repeat;
+        linear-gradient(105deg, rgba(7, 26, 46, .82), rgba(13, 71, 125, .68) 58%, rgba(18, 98, 163, .42)),
+        url("./IMAGEM EVEN3 OFICIAL.jpeg") center/cover no-repeat;
 }
 
 .hero::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(120deg, transparent 40%, rgba(14, 108, 196, 0.5) 100%);
+    background: radial-gradient(circle at 82% 20%, rgba(244, 119, 33, .37), transparent 24%);
     pointer-events: none;
 }
 
 .hero-content {
     position: relative;
     z-index: 1;
-    max-width: 700px;
+    width: min(960px, calc(100% - 32px));
+    max-width: none;
+    margin: 0 auto;
+    padding: 38px 0 42px;
 }
 
-.hero-kicker {
-    margin: 0;
-    font-size: clamp(14px, 2vw, 24px);
+.brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: .11em;
+    text-transform: uppercase;
 }
 
 .hero-title {
-    margin: 10px 0;
-    font-size: clamp(38px, 8vw, 78px);
-    font-weight: 700;
-    line-height: 1;
+    margin: 20px 0 0;
+    font-size: clamp(38px, 8vw, 70px);
+    font-weight: 850;
+    line-height: .98;
+    letter-spacing: -.045em;
+}
+
+.hero-kicker {
+    max-width: 650px;
+    margin: 12px 0 0;
+    color: rgba(255,255,255,.82);
+    font-size: clamp(13px, 2vw, 17px);
+    font-weight: 550;
+    line-height: 1.5;
 }
 
 .hero-date {
-    display: inline-block;
-    margin: 0;
-    padding: 8px 16px;
+    margin: 20px 0 0;
+    padding: 8px 14px;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.2);
     border-radius: 999px;
-    color: #0a2b4d;
-    background: rgba(255, 255, 255, 0.92);
-    font-size: clamp(16px, 2.4vw, 32px);
+    background: rgba(255,255,255,.12);
+    font-size: 14px;
+    font-weight: 750;
+    backdrop-filter: blur(10px);
+}
+
+h1, h2, h3, h4, p { margin-top: 0; }
+h2 { margin-bottom: 6px; font-size: clamp(25px, 4vw, 34px); line-height: 1.15; letter-spacing: -.025em; }
+h3 { margin-bottom: 6px; font-size: 19px; }
+h4 { margin-bottom: 8px; font-size: 16px; }
+
+.eyebrow {
+    margin: 0 0 6px;
+    color: var(--orange-600);
+    font-size: 12px;
+    font-weight: 850;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.muted { color: var(--ink-700); line-height: 1.55; }
+.mt-14 { margin-top: 14px; }
+.mt-18 { margin-top: 18px; }
+.initially-hidden { display: none; }
+
+.section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.operation-badge {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 11px;
+    color: var(--orange-600);
+    border: 1px solid #ffd1b4;
+    border-radius: 999px;
+    background: var(--orange-100);
+    font-size: 11px;
+    font-weight: 850;
+    white-space: nowrap;
+}
+
+.card, .dashboard {
+    margin: 0 0 18px;
+    padding: 22px;
+    max-width: none;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.scanner-card { position: relative; overflow: hidden; }
+.scanner-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--blue-700), var(--orange-500));
+}
+
+.flow-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 0 0 22px;
+}
+
+.flow-step {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-700);
+    background: var(--blue-50);
+    font-size: 13px;
     font-weight: 700;
 }
 
-.dashboard {
-    border: 1px solid #ccc;
-    padding: 15px;
-    margin: 15px auto;
-    border-radius: 10px;
-    background: #f8f9fa;
-    max-width: 800px;
-}
-
-.dashboard-grid {
+.flow-step span {
+    flex: 0 0 auto;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin: 10px 0;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    background: var(--blue-700);
+    font-size: 12px;
 }
 
-.dashboard-card {
-    background: white;
-    border: 1px solid #ddd;
+.field-group { text-align: left; }
+
+label {
+    display: inline-block;
+    margin: 0 0 7px;
+    color: var(--ink-900);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+button, select, input { min-height: 46px; margin: 0; border-radius: var(--radius-sm); font: inherit; }
+
+select, input {
+    width: 100%;
+    padding: 11px 13px;
+    color: var(--ink-900);
+    border: 1px solid #cbd8e5;
+    background: #fff;
+    outline: none;
+    transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+select:focus, input:focus { border-color: var(--blue-600); box-shadow: 0 0 0 4px rgba(25,118,189,.12); }
+
+input[type="file"] { height: auto; padding: 7px; color: var(--ink-700); background: var(--blue-50); }
+input[type="file"]::file-selector-button {
+    margin-right: 10px;
+    padding: 9px 12px;
+    border: 0;
     border-radius: 8px;
-    padding: 12px;
+    color: var(--blue-800);
+    background: var(--blue-100);
+    font-weight: 800;
+    cursor: pointer;
 }
 
-.dashboard-card strong {
-    display: block;
-    font-size: 26px;
-    color: var(--brand-blue);
+button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 16px;
+    color: #fff;
+    border: 1px solid transparent;
+    background: var(--blue-700);
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+button:hover { background: var(--blue-800); box-shadow: 0 8px 20px rgba(13,71,125,.18); }
+button:active { transform: translateY(1px); }
+button:focus-visible, .admin-nav-button:focus-visible { outline: 3px solid rgba(244,119,33,.32); outline-offset: 2px; }
+
+.button-primary { background: var(--orange-500); }
+.button-primary:hover { background: var(--orange-600); box-shadow: 0 8px 20px rgba(232,93,15,.22); }
+.button-secondary { color: var(--blue-800); border-color: var(--line); background: #fff; }
+.button-secondary:hover { color: var(--blue-800); background: var(--blue-50); }
+.button-warning { color: #6a3900; border-color: #f5c77b; background: #ffd991; }
+.button-warning:hover { background: #ffcd70; }
+.button-danger { background: var(--danger); }
+.button-danger:hover { background: #a92932; }
+
+.button-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.button-row button { margin: 0; }
+.camera-actions button { flex: 1 1 190px; }
+
+.reader-shell {
+    margin-top: 18px;
+    padding: 12px;
+    border: 1px dashed #b8cbe0;
+    border-radius: var(--radius-md);
+    background: linear-gradient(145deg, #f8fbff, #eef5fb);
 }
 
 #reader {
-    width: min(360px, 100%);
+    width: min(420px, 100%);
+    min-height: 14px;
     margin: auto;
+    overflow: hidden;
+    border: 0 !important;
+    border-radius: 12px;
+}
+
+#reader:empty::before {
+    content: "A visualização da câmera aparecerá aqui";
+    display: block;
+    padding: 36px 16px;
+    color: var(--ink-500);
+    font-size: 13px;
+    text-align: center;
 }
 
 .result {
-    margin-top: 20px;
-    font-size: 22px;
+    display: grid;
+    min-height: 64px;
+    margin: 14px 0 0;
+    padding: 14px 16px;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    color: var(--ink-700);
+    background: #f8fafc;
+    font-size: 17px;
+    text-align: center;
 }
 
-.ok { color: green; font-weight: bold; }
-.erro { color: red; font-weight: bold; }
-.aviso { color: #b7791f; font-weight: bold; }
+.result:empty::before { content: "Pronto para ler um QR Code"; color: var(--ink-500); font-size: 14px; font-weight: 650; }
+.ok { color: var(--success); font-weight: 850; }
+.erro { color: var(--danger); font-weight: 850; }
+.aviso { color: var(--warning); font-weight: 850; }
+body.ok-bg { background-color: var(--success-soft); }
+body.erro-bg { background-color: var(--danger-soft); }
+body.aviso-bg { background-color: var(--warning-soft); }
+body.ok-bg .scanner-card { box-shadow: 0 0 0 3px rgba(22,131,91,.15), var(--shadow-md); }
+body.erro-bg .scanner-card { box-shadow: 0 0 0 3px rgba(200,58,67,.15), var(--shadow-md); }
+body.aviso-bg .scanner-card { box-shadow: 0 0 0 3px rgba(168,93,0,.15), var(--shadow-md); }
+#resultado { transition: opacity .3s; }
 
-body.ok-bg { background-color: #d4edda; }
-body.erro-bg { background-color: #f8d7da; }
-body.aviso-bg { background-color: #fff3cd; }
-
-#resultado { transition: opacity 0.3s; }
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-    font-size: 14px;
+.dashboard-header, .records-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
-th, td {
-    padding: 8px;
-    border: 1px solid #ccc;
-}
+.dashboard-header { margin-bottom: 16px; }
+.dashboard-header h3, .dashboard-header p, .records-header h3, .records-header p { margin: 0; }
+.dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0; }
 
-th { background-color: #f2f2f2; }
-
-button, select, input {
-    padding: 10px;
-    margin: 6px;
-}
-
-.admin-box {
-    border: 1px solid #ccc;
+.dashboard-card {
+    min-width: 0;
     padding: 15px;
-    margin-top: 15px;
-    border-radius: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: #fff;
 }
 
-.import-status {
-    max-width: 800px;
-    margin: 10px auto;
-    padding: 12px;
-    border-radius: 8px;
-    background: #eef5fc;
-    color: #0b2f55;
+.dashboard-card::before {
+    content: "";
+    display: block;
+    width: 26px;
+    height: 3px;
+    margin-bottom: 12px;
+    border-radius: 999px;
+    background: var(--orange-500);
+}
+
+.dashboard-card span {
+    display: block;
+    overflow: hidden;
+    color: var(--ink-700);
+    font-size: 12px;
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-card strong { display: block; margin-top: 4px; color: var(--blue-800); font-size: 29px; line-height: 1; }
+.dashboard-footer { display: flex; justify-content: flex-end; margin-top: 14px; }
+
+.records-card { padding: 0; overflow: hidden; }
+.records-header { padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.records-count { padding: 6px 10px; border-radius: 999px; color: var(--blue-800); background: var(--blue-100); font-size: 12px; font-weight: 850; white-space: nowrap; }
+.table-wrap { width: 100%; overflow-x: auto; }
+
+table { width: 100%; margin: 0; border-collapse: collapse; font-size: 13px; text-align: left; }
+th, td { padding: 12px 16px; border: 0; border-bottom: 1px solid #e9eff5; }
+th { color: var(--ink-700); background: #f8fafc; font-size: 11px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--blue-50); }
+
+.admin-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 26px;
+    padding: 18px 20px;
+    color: #fff;
+    border-radius: var(--radius-md);
+    background: linear-gradient(110deg, var(--navy-900), var(--blue-800));
+    box-shadow: var(--shadow-md);
+}
+
+.admin-entry h3, .admin-entry p { margin: 0; }
+.admin-entry p { margin-top: 4px; color: rgba(255,255,255,.72); font-size: 13px; }
+.admin-entry button { flex: 0 0 auto; background: var(--orange-500); }
+
+.admin-shell {
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    display: none;
+    background: rgba(7,26,46,.68);
+    backdrop-filter: blur(4px);
+}
+
+.admin-layout {
+    position: relative;
+    display: flex;
+    width: min(1220px, 100%);
+    height: min(820px, 100%);
+    margin: auto;
+    overflow: hidden;
+    background: var(--canvas);
+    box-shadow: 0 25px 80px rgba(7,26,46,.35);
+}
+
+.admin-sidebar {
+    z-index: 3;
+    flex: 0 0 264px;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 18px 18px;
+    color: #fff;
+    background: var(--navy-950);
+}
+
+.admin-brand { display: flex; align-items: center; min-height: 48px; padding: 0 8px 22px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.admin-brand strong, .admin-brand small { display: block; }
+.admin-brand small { margin-top: 2px; color: rgba(255,255,255,.58); font-size: 11px; }
+.admin-nav { display: grid; gap: 7px; margin-top: 20px; }
+
+.admin-nav-button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: flex-start;
+    padding: 10px 12px;
+    color: rgba(255,255,255,.7);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
     text-align: left;
-    white-space: pre-line;
 }
 
-@media (max-width: 768px) {
-    body { padding: 0 12px 12px; }
+.admin-nav-button > span {
+    display: inline-grid;
+    flex: 0 0 25px;
+    width: 25px;
+    height: 25px;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(255,255,255,.08);
+    font-size: 14px;
+    font-weight: 900;
+}
 
-    .hero {
-        margin: 0 -12px 16px;
-        min-height: 200px;
-        padding: 24px 14px;
-    }
+.admin-nav-button:hover { color: #fff; background: rgba(255,255,255,.08); box-shadow: none; }
+.admin-nav-button.is-active { color: #fff; background: var(--blue-700); box-shadow: inset 3px 0 0 var(--orange-500); }
+.admin-nav-button.is-danger { margin-top: 10px; color: #ffb5ba; }
+.admin-version { margin-top: auto; padding: 14px 10px 4px; color: rgba(255,255,255,.55); font-size: 11px; line-height: 1.5; }
+.admin-version strong { display: block; color: #fff; }
 
-    .result { font-size: 18px; }
+.admin-content { flex: 1 1 auto; min-width: 0; overflow-y: auto; }
+.admin-topbar {
+    position: sticky;
+    z-index: 2;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 74px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,.94);
+    backdrop-filter: blur(12px);
+}
 
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
+.admin-topbar-title { min-width: 0; margin-right: auto; }
+.admin-topbar-title strong, .admin-topbar-title small { display: block; }
+.admin-topbar-title small { margin-top: 2px; overflow: hidden; color: var(--ink-500); text-overflow: ellipsis; white-space: nowrap; }
+.admin-icon-button { flex: 0 0 auto; width: 42px; min-height: 42px; padding: 0; color: var(--ink-700); border-color: var(--line); background: #fff; font-size: 20px; }
+.admin-menu-toggle { display: none; }
 
-    button, select, input {
-        width: 100%;
-        max-width: 100%;
-        margin: 6px 0;
-    }
+.admin-section { display: none; padding: 26px; }
+.admin-section.is-active { display: block; animation: sectionIn .2s ease; }
+@keyframes sectionIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.admin-section-heading { margin-bottom: 20px; }
+.admin-section-heading p { max-width: 720px; margin: 5px 0 0; color: var(--ink-700); line-height: 1.55; }
+.admin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.admin-card { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #fff; box-shadow: var(--shadow-sm); }
+.admin-card p:last-child { margin-bottom: 0; }
+.admin-card-full { grid-column: 1 / -1; }
+.admin-stat strong { display: block; margin-top: 8px; color: var(--blue-800); font-size: 30px; }
+.admin-action-card { display: flex; flex-direction: column; }
+.admin-action-card .button-row { margin-top: auto; padding-top: 12px; }
+.admin-callout { padding: 14px 16px; border-left: 4px solid var(--orange-500); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--ink-700); background: var(--orange-100); line-height: 1.55; }
+.danger-card { border-color: #f0c5c8; background: #fffafa; }
+.danger-card h4 { color: var(--danger); }
+.import-status { max-width: none; margin: 14px 0 0; padding: 13px 15px; border-radius: var(--radius-sm); color: var(--blue-800); background: var(--blue-50); text-align: left; white-space: pre-line; }
+.admin-sidebar-scrim { display: none; }
 
-    th, td {
-        padding: 6px;
-        font-size: 12px;
-    }
+@media (max-width: 820px) {
+    .admin-layout { height: 100%; }
+    .admin-sidebar { position: absolute; inset: 0 auto 0 0; width: min(286px, 84vw); transform: translateX(-105%); transition: transform .24s ease; }
+    .admin-sidebar.is-open { transform: translateX(0); }
+    .admin-sidebar-scrim { position: absolute; z-index: 2; inset: 0; background: rgba(7,26,46,.5); }
+    .admin-sidebar-scrim.is-visible { display: block; }
+    .admin-menu-toggle { display: inline-flex; }
+    .admin-section { padding: 20px 16px 32px; }
+    .admin-grid { grid-template-columns: 1fr; }
+    .admin-card-full { grid-column: auto; }
+}
+
+@media (max-width: 680px) {
+    .hero { min-height: 220px; }
+    .hero-content, .page-wrapper { width: min(100% - 24px, 960px); }
+    .hero-content { padding: 28px 0 32px; }
+    .page-wrapper { padding: 18px 0 30px; }
+    .hero-title { margin-top: 16px; }
+    .hero-kicker { font-size: 12px; }
+    .card, .dashboard { padding: 17px; border-radius: 14px; }
+    .section-heading { align-items: flex-start; margin-bottom: 18px; }
+    .operation-badge { padding: 7px 9px; font-size: 10px; }
+    .flow-steps { grid-template-columns: 1fr; gap: 7px; }
+    .flow-step { padding: 8px 10px; }
+    .button-row { display: grid; grid-template-columns: 1fr; }
+    .button-row button, .dashboard-footer button { width: 100%; }
+    .dashboard-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+    .dashboard-card { padding: 13px; }
+    .dashboard-card strong { font-size: 25px; }
+    .dashboard-footer { display: block; }
+    .records-header { align-items: flex-start; padding: 16px; }
+    th, td { min-width: 118px; padding: 11px 13px; }
+    th:first-child, td:first-child { min-width: 180px; }
+    .admin-entry { align-items: stretch; flex-direction: column; }
+    .admin-entry button { width: 100%; }
+    .admin-topbar { min-height: 66px; padding: 11px 12px; }
+    .admin-topbar-title strong { font-size: 14px; }
+    .admin-topbar-title small { max-width: 190px; font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 </style>
 </head>
@@ -203,161 +569,262 @@ button, select, input {
 
 <section class="hero" aria-label="Capa do congresso COMUSCS">
   <div class="hero-content">
+    <div class="brand-lockup">
+      <span>COMUSCS 2026</span>
+    </div>
+    <h1 class="hero-title">XI COMUSCS</h1>
     <p class="hero-kicker">11ª Edição do Congresso Médico Universitário de São Caetano do Sul</p>
-    <h1 class="hero-title">PRÉ COMUSCS</h1>
-    <p class="hero-date">15 de agosto de 2026</p>
+    <p class="hero-date">7, 8 e 9 de outubro de 2026</p>
   </div>
 </section>
 
 <main class="page-wrapper">
-
-<h2>CREDENCIAMENTO</h2>
-
-<label>Evento:</label>
-<select id="eventoSelect" onchange="trocarEvento()">
-  <option value="">Carregando eventos...</option>
-</select>
-
-<br>
-
-<button id="btnCamera" onclick="toggleCamera()">Ativar câmera</button>
-
-<button id="btnTrocarCamera" onclick="trocarCamera()" style="display:none;">
-  Alternar câmera
-</button>
-
-<div id="reader"></div>
-
-<div class="result" id="resultado"></div>
-
-<div class="dashboard">
-    <h3>📊 Resumo do evento</h3>
-
-    <div class="dashboard-grid">
-        <div class="dashboard-card">
-            <span>Inscritos</span>
-            <strong id="dashboardInscritos">0</strong>
-        </div>
-
-        <div class="dashboard-card">
-            <span>Presenças</span>
-            <strong id="dashboardPresencas">0</strong>
-        </div>
-
-        <div class="dashboard-card">
-            <span>Pendentes</span>
-            <strong id="dashboardPendentes">0</strong>
-        </div>
-
-        <div class="dashboard-card">
-            <span>Fora</span>
-            <strong id="dashboardFora">0</strong>
-        </div>
+  <section class="card scanner-card" aria-labelledby="checkinTitle">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Leitura operacional</p>
+        <h2 id="checkinTitle">Check-in por QR Code</h2>
+        <p class="muted">Selecione a atividade e faça a leitura do código do participante.</p>
+      </div>
+      <span class="operation-badge">● Modo leitura</span>
     </div>
 
-    <button onclick="verInscritos()">Ver inscritos importados</button>
-</div>
+    <div class="flow-steps" role="group" aria-label="Etapas da leitura">
+      <div class="flow-step"><span>1</span> Selecionar atividade</div>
+      <div class="flow-step"><span>2</span> Ativar câmera</div>
+      <div class="flow-step"><span>3</span> Ler o QR Code</div>
+    </div>
+
+    <div class="field-group">
+      <label for="eventoSelect">Atividade do momento</label>
+      <select id="eventoSelect" onchange="trocarEvento()">
+        <option value="">Carregando atividades...</option>
+      </select>
+    </div>
+
+    <div class="button-row camera-actions">
+      <button type="button" id="btnCamera" class="button-primary" onclick="toggleCamera()">Ativar câmera</button>
+      <button type="button" id="btnTrocarCamera" class="button-secondary initially-hidden" onclick="trocarCamera()">Alternar câmera</button>
+    </div>
+
+    <div class="reader-shell">
+      <div id="reader"></div>
+    </div>
+
+    <div class="result" id="resultado" role="status" aria-live="polite"></div>
+  </section>
+
+  <section class="dashboard" aria-labelledby="resumoTitle">
+    <div class="dashboard-header">
+      <div>
+        <p class="eyebrow">Acompanhamento</p>
+        <h3 id="resumoTitle">Resumo da atividade</h3>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dashboard-card"><span>Inscritos</span><strong id="dashboardInscritos">0</strong></div>
+      <div class="dashboard-card"><span>Presenças</span><strong id="dashboardPresencas">0</strong></div>
+      <div class="dashboard-card"><span>Pendentes</span><strong id="dashboardPendentes">0</strong></div>
+      <div class="dashboard-card"><span>Fora</span><strong id="dashboardFora">0</strong></div>
+    </div>
+
+    <div class="dashboard-footer">
+      <button type="button" class="button-secondary" onclick="verInscritos()">Ver inscritos importados</button>
+    </div>
+  </section>
 
 <audio id="som-ok" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
 <audio id="som-erro" src="https://actions.google.com/sounds/v1/cartoon/boing.ogg"></audio>
 
-<hr>
+  <section class="card records-card" aria-labelledby="presencasTitle">
+    <div class="records-header">
+      <div>
+        <p class="eyebrow">Credenciamento</p>
+        <h3 id="presencasTitle">Participantes presentes</h3>
+      </div>
+      <span class="records-count" id="totalPresencas">Presenças: 0</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nome</th><th>Nº Inscrição</th><th>Horário</th></tr></thead>
+        <tbody id="listaPresencas"></tbody>
+      </table>
+    </div>
+  </section>
 
-<h3 id="totalPresencas">Presenças: 0</h3>
+  <section class="card records-card" aria-labelledby="movimentacoesTitle">
+    <div class="records-header">
+      <div>
+        <p class="eyebrow">Tempo real</p>
+        <h3 id="movimentacoesTitle">Movimentações recentes</h3>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nome</th><th>Nº Inscrição</th><th>Movimento</th><th>Horário</th></tr></thead>
+        <tbody id="listaMovimentacoes"></tbody>
+      </table>
+    </div>
+  </section>
 
-<table>
-  <thead>
-    <tr>
-      <th>Nome</th>
-      <th>Nº Inscrição</th>
-      <th>Horário</th>
-    </tr>
-  </thead>
-  <tbody id="listaPresencas"></tbody>
-</table>
-
-<hr>
-
-<h3>Movimentações recentes</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Nome</th>
-      <th>Nº Inscrição</th>
-      <th>Movimento</th>
-      <th>Horário</th>
-    </tr>
-  </thead>
-  <tbody id="listaMovimentacoes"></tbody>
-</table>
-
-<hr>
-
-<button onclick="abrirAdmin()">Área do administrador</button>
-
-<div id="adminArea" style="display:none;" class="admin-box">
-
-  <button onclick="fecharAdmin()" style="background:#6c757d; color:white;">
-    Fechar área do administrador
-  </button>
-
-  <p style="margin:12px 0; padding:8px; background:#e8f5e9; color:#1b5e20; border-radius:6px;">
-    <strong>Versão 2026-08-05.2 — dados acadêmicos</strong><br>
-    Importação por duas planilhas e exportação com CPF, e-mail institucional e RA/matrícula.
-  </p>
-
-  <h3>Gestão do Evento</h3>
-
-  <h4>Importar planilhas do Even3</h4>
-  <p>
-    Selecione as duas planilhas. O app cruzará o <strong>ID do participante</strong>
-    com o <strong>Número de inscrição</strong>, criará ou atualizará as atividades e
-    usará o Número de inscrição na leitura do QR Code.
-  </p>
-  <label for="excelInscritosEven3Input"><strong>1. Lista Inscritos (atividades)</strong></label><br>
-  <input type="file" id="excelInscritosEven3Input" accept=".xlsx,.xls"><br>
-  <label for="excelParticipantesEven3Input"><strong>2. ListaParticipante (números de inscrição)</strong></label><br>
-  <input type="file" id="excelParticipantesEven3Input" accept=".xlsx,.xls"><br>
-  <button id="btnImportarExcelEven3" onclick="importarExcelEven3()">
-    Cruzar planilhas e importar
-  </button>
-  <div id="importacaoEven3Status" class="import-status" style="display:none;"></div>
-
-  <hr>
-
-  <h4>Criar novo evento</h4>
-  <input id="novoEventoNome" placeholder="Nome do evento">
-  <input id="novoEventoData" type="date">
-  <button onclick="criarEvento()">Criar evento</button>
-
-  <hr>
-
-  <h4>Importar lista padrão CSV</h4>
-  <p>Use o CSV original exportado do Even3, sem renomear colunas.</p>
-  <input type="file" id="csvInput" accept=".csv">
-  <button onclick="importarCSV()">Importar lista para o evento selecionado</button>
-
-  <hr>
-
-  <button onclick="exportarExcel()">Exportar presenças em Excel</button>
-  <button onclick="exportarMovimentacoesExcel()">Exportar movimentações em Excel</button>
-
-  <hr>
-
-  <h4>Zona de risco</h4>
-
-  <button onclick="limparEventoAtual()" style="background:#ffc107;">
-    Limpar evento atual
-  </button>
-
-  <button onclick="resetCompleto()" style="background:#dc3545; color:white;">
-    RESET COMPLETO
-  </button>
-
-</div>
+  <section class="admin-entry" aria-label="Acesso administrativo">
+    <div>
+      <h3>Gestão do evento</h3>
+      <p>Importações, relatórios e configurações em um painel separado.</p>
+    </div>
+    <button type="button" onclick="abrirAdmin()">Abrir área administrativa</button>
+  </section>
 
 </main>
+
+<div id="adminArea" class="admin-shell">
+  <div class="admin-layout" role="dialog" aria-modal="true" aria-labelledby="adminPanelTitle">
+    <div id="adminSidebarScrim" class="admin-sidebar-scrim" onclick="toggleAdminMenu(false)"></div>
+
+    <aside id="adminSidebar" class="admin-sidebar" aria-label="Menu administrativo">
+      <div class="admin-brand">
+        <div><strong>COMUSCS</strong><small>Painel administrativo</small></div>
+      </div>
+
+      <nav class="admin-nav">
+        <button type="button" class="admin-nav-button is-active" data-admin-section="visao" onclick="trocarSecaoAdmin('visao')"><span aria-hidden="true">▦</span> Visão geral</button>
+        <button type="button" class="admin-nav-button" data-admin-section="importacoes" onclick="trocarSecaoAdmin('importacoes')"><span aria-hidden="true">⇧</span> Importar dados</button>
+        <button type="button" class="admin-nav-button" data-admin-section="eventos" onclick="trocarSecaoAdmin('eventos')"><span aria-hidden="true">＋</span> Gerenciar eventos</button>
+        <button type="button" class="admin-nav-button" data-admin-section="relatorios" onclick="trocarSecaoAdmin('relatorios')"><span aria-hidden="true">⇩</span> Relatórios</button>
+        <button type="button" class="admin-nav-button is-danger" data-admin-section="risco" onclick="trocarSecaoAdmin('risco')"><span aria-hidden="true">!</span> Zona de risco</button>
+      </nav>
+
+      <div class="admin-version">
+        <strong>Versão 2026-08-05.6</strong>
+        Interface mobile · dados acadêmicos
+      </div>
+    </aside>
+
+    <div class="admin-content">
+      <header class="admin-topbar">
+        <button type="button" class="admin-icon-button admin-menu-toggle" onclick="toggleAdminMenu(true)" aria-label="Abrir menu">☰</button>
+        <div class="admin-topbar-title">
+          <strong id="adminPanelTitle">Área administrativa</strong>
+          <small>Gestão geral do aplicativo</small>
+        </div>
+        <button type="button" class="admin-icon-button" onclick="fecharAdmin()" aria-label="Fechar área administrativa">×</button>
+      </header>
+
+      <section id="adminSection-visao" class="admin-section is-active">
+        <div class="admin-section-heading">
+          <p class="eyebrow">Visão geral</p>
+          <h2>Resumo geral</h2>
+          <p>Acompanhe os dados consolidados e acesse as funções administrativas pelo menu lateral.</p>
+        </div>
+        <div class="admin-grid">
+          <article class="admin-card admin-stat"><span class="muted">Atividades</span><strong id="adminResumoEventos">0</strong></article>
+          <article class="admin-card admin-stat"><span class="muted">Inscrições vinculadas</span><strong id="adminResumoInscritos">0</strong></article>
+          <article class="admin-card admin-stat"><span class="muted">Presenças registradas</span><strong id="adminResumoPresencas">0</strong></article>
+          <article class="admin-card admin-stat"><span class="muted">Movimentações</span><strong id="adminResumoMovimentacoes">0</strong></article>
+          <div class="admin-card admin-card-full">
+            <h4>Como está organizado</h4>
+            <p class="muted">Use <strong>Importar dados</strong> para atualizar as planilhas do Even3, <strong>Gerenciar eventos</strong> para criar atividades e <strong>Relatórios</strong> para baixar os arquivos de presença.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="adminSection-importacoes" class="admin-section">
+        <div class="admin-section-heading">
+          <p class="eyebrow">Importar dados</p>
+          <h2>Planilhas de participantes</h2>
+          <p>Atualize as atividades e os participantes usando os arquivos exportados pelo Even3.</p>
+        </div>
+        <div class="admin-grid">
+          <article class="admin-card admin-card-full">
+            <h4>Importação completa do Even3</h4>
+            <p class="muted">O aplicativo cruza o ID interno com o Número de inscrição e usa esse número na leitura do QR Code.</p>
+            <div class="admin-callout">Selecione os dois arquivos antes de iniciar. Os dados existentes serão atualizados sem duplicar participantes.</div>
+            <div class="field-group mt-18">
+              <label for="excelInscritosEven3Input">1. Lista Inscritos — atividades</label>
+              <input type="file" id="excelInscritosEven3Input" accept=".xlsx,.xls">
+            </div>
+            <div class="field-group mt-14">
+              <label for="excelParticipantesEven3Input">2. ListaParticipante — números de inscrição</label>
+              <input type="file" id="excelParticipantesEven3Input" accept=".xlsx,.xls">
+            </div>
+            <div class="button-row">
+              <button type="button" id="btnImportarExcelEven3" class="button-primary" onclick="importarExcelEven3()">Cruzar planilhas e importar</button>
+            </div>
+            <div id="importacaoEven3Status" class="import-status initially-hidden"></div>
+          </article>
+
+          <article class="admin-card admin-card-full">
+            <h4>Importação CSV para uma atividade</h4>
+            <p class="muted">Use o CSV original exportado do Even3, sem renomear as colunas.</p>
+            <div class="field-group"><label for="adminCsvEventoSelect">Atividade que receberá a lista</label><select id="adminCsvEventoSelect"><option value="">Selecione uma atividade</option></select></div>
+            <div class="field-group mt-14"><label for="csvInput">Arquivo CSV</label><input type="file" id="csvInput" accept=".csv"></div>
+            <div class="button-row"><button type="button" onclick="importarCSV()">Importar lista para a atividade selecionada</button></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="adminSection-eventos" class="admin-section">
+        <div class="admin-section-heading">
+          <p class="eyebrow">Gerenciar eventos</p>
+          <h2>Criar nova atividade</h2>
+          <p>Cadastre manualmente uma atividade quando ela não vier na importação completa.</p>
+        </div>
+        <div class="admin-grid">
+          <article class="admin-card admin-card-full">
+            <div class="field-group"><label for="novoEventoNome">Nome da atividade</label><input id="novoEventoNome" type="text" placeholder="Ex.: Oficina de suturas"></div>
+            <div class="field-group mt-14"><label for="novoEventoData">Data</label><input id="novoEventoData" type="date"></div>
+            <div class="button-row"><button type="button" class="button-primary" onclick="criarEvento()">Criar atividade</button></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="adminSection-relatorios" class="admin-section">
+        <div class="admin-section-heading">
+          <p class="eyebrow">Relatórios</p>
+          <h2>Exportar dados</h2>
+          <p>Escolha a atividade que deseja exportar. Essa seleção é independente da tela de leitura.</p>
+        </div>
+        <div class="admin-grid">
+          <article class="admin-card admin-card-full">
+            <div class="field-group"><label for="adminRelatorioEventoSelect">Atividade do relatório</label><select id="adminRelatorioEventoSelect"><option value="">Selecione uma atividade</option></select></div>
+          </article>
+          <article class="admin-card admin-action-card">
+            <h4>Presenças em Excel</h4>
+            <p class="muted">Nome, inscrição, CPF, e-mail institucional, RA/matrícula e primeira entrada.</p>
+            <div class="button-row"><button type="button" class="button-primary" onclick="exportarExcel()">Exportar presenças</button></div>
+          </article>
+          <article class="admin-card admin-action-card">
+            <h4>Movimentações em Excel</h4>
+            <p class="muted">Entradas, saídas e retornos registrados em ordem cronológica.</p>
+            <div class="button-row"><button type="button" onclick="exportarMovimentacoesExcel()">Exportar movimentações</button></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="adminSection-risco" class="admin-section">
+        <div class="admin-section-heading">
+          <p class="eyebrow">Zona de risco</p>
+          <h2>Ações destrutivas</h2>
+          <p>Estas opções apagam dados. Leia com atenção antes de continuar.</p>
+        </div>
+        <div class="admin-grid">
+          <article class="admin-card danger-card admin-action-card">
+            <h4>Limpar uma atividade</h4>
+            <p class="muted">Escolha abaixo a atividade cujos inscritos, presenças e movimentações serão apagados.</p>
+            <div class="field-group mt-14"><label for="adminRiscoEventoSelect">Atividade a limpar</label><select id="adminRiscoEventoSelect"><option value="">Selecione uma atividade</option></select></div>
+            <div class="button-row"><button type="button" class="button-warning" onclick="limparEventoAtual()">Limpar atividade selecionada</button></div>
+          </article>
+          <article class="admin-card danger-card admin-action-card">
+            <h4>Reset completo</h4>
+            <p class="muted">Apaga todas as atividades, inscritos, presenças e movimentações do aplicativo.</p>
+            <div class="button-row"><button type="button" class="button-danger" onclick="resetCompleto()">RESET COMPLETO</button></div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
 
 <script>
 const SUPABASE_URL = "https://goytizsanwooamfjtvqk.supabase.co";
@@ -368,6 +835,7 @@ const SENHA_ADMIN = "comuscs2026";
 let processando = false;
 let EVENTO_ID = "";
 let EVENTO_NOME = "";
+let EVENTOS_DISPONIVEIS = [];
 
 let html5QrCode = null;
 let cameraAtiva = false;
@@ -382,19 +850,136 @@ function headers(extra = {}) {
     };
 }
 
-function abrirAdmin() {
+async function abrirAdmin() {
     const senha = prompt("Digite a senha de administrador:");
 
     if (senha === SENHA_ADMIN) {
-        document.getElementById("adminArea").style.display = "block";
-        alert("Acesso liberado.");
+        const adminArea = document.getElementById("adminArea");
+        adminArea.style.display = "flex";
+        document.body.classList.add("admin-open");
+        trocarSecaoAdmin("visao");
+        preencherSeletoresAdmin();
+        await atualizarResumoGeralAdmin();
     } else {
         alert("Senha incorreta.");
     }
 }
 
 function fecharAdmin() {
-    document.getElementById("adminArea").style.display = "none";
+    const adminArea = document.getElementById("adminArea");
+    adminArea.style.display = "none";
+    document.body.classList.remove("admin-open");
+    toggleAdminMenu(false);
+}
+
+function toggleAdminMenu(forcarAbertura) {
+    const sidebar = document.getElementById("adminSidebar");
+    const scrim = document.getElementById("adminSidebarScrim");
+    if (!sidebar || !scrim) return;
+
+    const abrir = typeof forcarAbertura === "boolean"
+        ? forcarAbertura
+        : !sidebar.classList.contains("is-open");
+
+    sidebar.classList.toggle("is-open", abrir);
+    scrim.classList.toggle("is-visible", abrir);
+}
+
+function trocarSecaoAdmin(secao) {
+    const titulos = {
+        visao: "Visão geral",
+        importacoes: "Importar dados",
+        eventos: "Gerenciar eventos",
+        relatorios: "Relatórios",
+        risco: "Zona de risco"
+    };
+
+    document.querySelectorAll(".admin-section").forEach(item => {
+        item.classList.toggle("is-active", item.id === `adminSection-${secao}`);
+    });
+
+    document.querySelectorAll(".admin-nav-button").forEach(botao => {
+        botao.classList.toggle("is-active", botao.dataset.adminSection === secao);
+    });
+
+    const titulo = document.getElementById("adminPanelTitle");
+    if (titulo) titulo.textContent = titulos[secao] || "Área administrativa";
+
+    if (secao === "visao") atualizarResumoGeralAdmin();
+
+    if (window.innerWidth <= 820) toggleAdminMenu(false);
+}
+
+function atualizarEspelhosAdmin() {
+    if (document.body.classList.contains("admin-open")) atualizarResumoGeralAdmin();
+}
+
+async function atualizarResumoGeralAdmin() {
+    const destinos = {
+        eventos: document.getElementById("adminResumoEventos"),
+        inscritos: document.getElementById("adminResumoInscritos"),
+        presencas: document.getElementById("adminResumoPresencas"),
+        movimentacoes: document.getElementById("adminResumoMovimentacoes")
+    };
+
+    if (!destinos.eventos) return;
+
+    try {
+        const consultas = [
+            ["eventos", "eventos"],
+            ["inscritos", "inscritos"],
+            ["presencas", "presencas"],
+            ["movimentacoes", "movimentacoes_presenca"]
+        ];
+
+        const resultados = await Promise.all(consultas.map(async ([chave, tabela]) => {
+            const resposta = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=id`, { headers: headers() });
+            if (!resposta.ok) throw new Error(await resposta.text());
+            return [chave, (await resposta.json()).length];
+        }));
+
+        resultados.forEach(([chave, total]) => {
+            if (destinos[chave]) destinos[chave].textContent = total;
+        });
+    } catch (erro) {
+        console.error("Erro ao carregar o resumo administrativo:", erro);
+    }
+}
+
+function preencherSeletoresAdmin() {
+    ["adminCsvEventoSelect", "adminRelatorioEventoSelect", "adminRiscoEventoSelect"].forEach(id => {
+        const select = document.getElementById(id);
+        if (!select) return;
+
+        const valorAnterior = select.value;
+        select.innerHTML = '<option value="">Selecione uma atividade</option>';
+
+        EVENTOS_DISPONIVEIS.forEach(evento => {
+            const option = document.createElement("option");
+            option.value = evento.id;
+            option.dataset.nome = evento.nome;
+            option.textContent = evento.data_evento
+                ? `${evento.nome} - ${evento.data_evento}`
+                : evento.nome;
+            select.appendChild(option);
+        });
+
+        if (valorAnterior && EVENTOS_DISPONIVEIS.some(evento => String(evento.id) === String(valorAnterior))) {
+            select.value = valorAnterior;
+        }
+    });
+}
+
+function obterAtividadeAdmin(selectId) {
+    const select = document.getElementById(selectId);
+    const option = select?.options[select.selectedIndex];
+
+    if (!select?.value) return null;
+
+    return {
+        id: select.value,
+        nome: option?.dataset.nome || option?.textContent || "atividade"
+    };
 }
 
 function tocarSom(tipo) {
@@ -424,28 +1009,89 @@ function resetarLeitura() {
     }, 2500);
 }
 
-async function iniciarCamera() {
+function camerasComIdValido(cameras) {
+    return (Array.isArray(cameras) ? cameras : []).filter(camera =>
+        camera && typeof camera.id === "string" && camera.id.trim() !== ""
+    );
+}
+
+function mensagemErroCamera(erro) {
+    const nome = erro?.name || "";
+    const mensagem = String(erro?.message || erro || "");
+
+    if (!window.isSecureContext) {
+        return "A câmera só pode ser aberta em uma conexão segura. Acesse o aplicativo pelo endereço HTTPS do GitHub Pages.";
+    }
+
+    if (nome === "NotAllowedError" || /permission|permiss[aã]o|denied/i.test(mensagem)) {
+        return "A permissão da câmera foi negada. Autorize a câmera nas configurações do navegador e tente novamente.";
+    }
+
+    if (nome === "NotFoundError" || nome === "DevicesNotFoundError") {
+        return "Nenhuma câmera foi encontrada neste dispositivo.";
+    }
+
+    if (nome === "NotReadableError" || nome === "TrackStartError") {
+        return "Não foi possível usar a câmera. Feche outros aplicativos que estejam usando-a e tente novamente.";
+    }
+
+    if (/cameraIdOrConfig is required/i.test(mensagem)) {
+        return "O navegador não forneceu uma câmera válida. Atualize a página e autorize o acesso à câmera.";
+    }
+
+    return mensagem || "Não foi possível iniciar a câmera.";
+}
+
+async function atualizarListaDeCameras(cameraUsada) {
+    try {
+        camerasDisponiveis = camerasComIdValido(await Html5Qrcode.getCameras());
+
+        if (typeof cameraUsada === "string") {
+            const indiceUsado = camerasDisponiveis.findIndex(camera => camera.id === cameraUsada);
+            if (indiceUsado >= 0) cameraIndexAtual = indiceUsado;
+            return;
+        }
+
+        const indiceTraseira = camerasDisponiveis.findIndex(camera =>
+            /back|rear|environment|traseir|traser/i.test(camera.label || "")
+        );
+        if (indiceTraseira >= 0) cameraIndexAtual = indiceTraseira;
+    } catch (erro) {
+        console.warn("Não foi possível listar as câmeras para alternância:", erro);
+        camerasDisponiveis = [];
+    }
+}
+
+async function iniciarCamera(cameraIdOuConfig = null) {
     const btn = document.getElementById("btnCamera");
     const btnTrocar = document.getElementById("btnTrocarCamera");
+
+    if (typeof Html5Qrcode === "undefined") {
+        throw new Error("O leitor de QR Code não foi carregado. Atualize a página e tente novamente.");
+    }
 
     if (!html5QrCode) {
         html5QrCode = new Html5Qrcode("reader");
     }
 
-    if (!camerasDisponiveis.length) {
-        camerasDisponiveis = await Html5Qrcode.getCameras();
-    }
-
-    if (!camerasDisponiveis || !camerasDisponiveis.length) {
-        alert("Nenhuma câmera encontrada.");
-        return;
-    }
-
-    const cameraId = camerasDisponiveis[cameraIndexAtual].id;
+    // Na primeira abertura, solicita diretamente a câmera traseira. Alguns
+    // navegadores listam o dispositivo antes da permissão, mas retornam o ID
+    // vazio; enviar esse ID vazio causa "cameraIdOrConfig is required".
+    const fonteCamera = (
+        typeof cameraIdOuConfig === "string" && cameraIdOuConfig.trim() !== ""
+    )
+        ? cameraIdOuConfig
+        : { facingMode: { ideal: "environment" } };
 
     await html5QrCode.start(
-        cameraId,
-        { fps: 10, qrbox: 250 },
+        fonteCamera,
+        {
+            fps: 10,
+            qrbox: (largura, altura) => {
+                const lado = Math.floor(Math.min(largura, altura) * 0.72);
+                return { width: lado, height: lado };
+            }
+        },
         qrCodeMessage => registrarPresenca(qrCodeMessage),
         errorMessage => {}
     );
@@ -453,8 +1099,12 @@ async function iniciarCamera() {
     cameraAtiva = true;
     btn.innerText = "Desativar câmera";
 
+    await atualizarListaDeCameras(fonteCamera);
+
     if (camerasDisponiveis.length > 1) {
         btnTrocar.style.display = "inline-block";
+    } else {
+        btnTrocar.style.display = "none";
     }
 }
 
@@ -462,11 +1112,12 @@ async function pararCamera() {
     const btn = document.getElementById("btnCamera");
     const btnTrocar = document.getElementById("btnTrocarCamera");
 
-    if (html5QrCode && cameraAtiva) {
-        await html5QrCode.stop();
+    if (html5QrCode) {
+        if (cameraAtiva) await html5QrCode.stop();
         await html5QrCode.clear();
     }
 
+    html5QrCode = null;
     cameraAtiva = false;
     btn.innerText = "Ativar câmera";
     btnTrocar.style.display = "none";
@@ -480,32 +1131,36 @@ async function toggleCamera() {
             await pararCamera();
         }
     } catch (err) {
-        alert("Erro na câmera: " + err);
+        cameraAtiva = false;
+        html5QrCode = null;
+        document.getElementById("btnCamera").innerText = "Ativar câmera";
+        document.getElementById("btnTrocarCamera").style.display = "none";
+        alert("Erro na câmera: " + mensagemErroCamera(err));
     }
 }
 
 async function trocarCamera() {
     try {
-        if (!camerasDisponiveis.length) {
-            camerasDisponiveis = await Html5Qrcode.getCameras();
-        }
+        camerasDisponiveis = camerasComIdValido(await Html5Qrcode.getCameras());
 
         if (camerasDisponiveis.length <= 1) {
             alert("Só há uma câmera disponível.");
             return;
         }
 
-        if (cameraAtiva && html5QrCode) {
-            await html5QrCode.stop();
-            await html5QrCode.clear();
-        }
+        const proximoIndex = (cameraIndexAtual + 1) % camerasDisponiveis.length;
+        const proximaCameraId = camerasDisponiveis[proximoIndex].id;
 
-        cameraIndexAtual = (cameraIndexAtual + 1) % camerasDisponiveis.length;
-
-        await iniciarCamera();
+        await pararCamera();
+        cameraIndexAtual = proximoIndex;
+        await iniciarCamera(proximaCameraId);
 
     } catch (err) {
-        alert("Erro ao alternar câmera: " + err);
+        cameraAtiva = false;
+        html5QrCode = null;
+        document.getElementById("btnCamera").innerText = "Ativar câmera";
+        document.getElementById("btnTrocarCamera").style.display = "none";
+        alert("Erro ao alternar câmera: " + mensagemErroCamera(err));
     }
 }
 
@@ -521,6 +1176,7 @@ async function carregarEventos() {
     }
 
     const eventos = await res.json();
+    EVENTOS_DISPONIVEIS = eventos;
     const select = document.getElementById("eventoSelect");
 
     select.innerHTML = "";
@@ -529,6 +1185,7 @@ async function carregarEventos() {
         select.innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
         EVENTO_ID = "";
         EVENTO_NOME = "";
+        preencherSeletoresAdmin();
         limparTelaEvento();
         return;
     }
@@ -543,6 +1200,7 @@ async function carregarEventos() {
 
     EVENTO_ID = select.value;
     EVENTO_NOME = select.options[select.selectedIndex].dataset.nome;
+    preencherSeletoresAdmin();
 
     await atualizarDashboard();
     await carregarPresencas();
@@ -554,6 +1212,7 @@ function trocarEvento() {
     EVENTO_ID = select.value;
     EVENTO_NOME = select.options[select.selectedIndex]?.dataset.nome || "evento";
 
+    atualizarEspelhosAdmin();
     atualizarDashboard();
     carregarPresencas();
     carregarMovimentacoes();
@@ -567,6 +1226,7 @@ function limparTelaEvento() {
     document.getElementById("listaPresencas").innerHTML = "";
     document.getElementById("listaMovimentacoes").innerHTML = "";
     document.getElementById("totalPresencas").innerText = "Presenças: 0";
+    atualizarEspelhosAdmin();
 }
 
 async function criarEvento() {
@@ -1354,8 +2014,10 @@ async function importarExcelEven3() {
 }
 
 async function importarCSV() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento primeiro.");
+    const atividade = obterAtividadeAdmin("adminCsvEventoSelect");
+
+    if (!atividade) {
+        alert("Selecione a atividade que receberá a lista CSV.");
         return;
     }
 
@@ -1400,7 +2062,7 @@ async function importarCSV() {
                 ]).trim();
 
                 return {
-                    evento_id: EVENTO_ID,
+                    evento_id: atividade.id,
                     nome: nome,
                     numero_inscricao: numeroInscricao
                 };
@@ -1447,14 +2109,15 @@ async function importarCSV() {
             }
 
             alert(
-                `Importação concluída para o evento "${EVENTO_NOME}".\n\n` +
+                `Importação concluída para a atividade "${atividade.nome}".\n\n` +
                 `Inscritos válidos importados/atualizados: ${payloadSemDuplicados.length}\n` +
                 `Linhas ignoradas sem número de inscrição: ${ignoradosSemInscricao}\n` +
                 `Duplicados dentro do CSV ignorados: ${ignoradosPorDuplicidade}`
             );
 
             fileInput.value = "";
-            atualizarDashboard();
+            if (String(EVENTO_ID) === String(atividade.id)) atualizarDashboard();
+            atualizarResumoGeralAdmin();
         }
     });
 }
@@ -1508,6 +2171,7 @@ async function atualizarDashboard() {
     document.getElementById("dashboardPendentes").innerText = pendentes;
     document.getElementById("dashboardFora").innerText = fora;
     document.getElementById("totalPresencas").innerText = `Presenças: ${totalPresencas}`;
+    atualizarEspelhosAdmin();
 }
 
 async function verInscritos() {
@@ -1761,13 +2425,15 @@ async function registrarPresenca(qrCodeMessage) {
 }
 
 async function exportarExcel() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento primeiro.");
+    const atividade = obterAtividadeAdmin("adminRelatorioEventoSelect");
+
+    if (!atividade) {
+        alert("Selecione a atividade do relatório.");
         return;
     }
 
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}` +
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${atividade.id}` +
         `&select=numero_inscricao,horario_checkin,inscritos(nome,numero_inscricao,documento,email_institucional,ra_matricula)` +
         `&order=horario_checkin.desc`,
         { headers: headers() }
@@ -1810,17 +2476,19 @@ async function exportarExcel() {
     ws["!autofilter"] = { ref: `A1:F${linhas.length + 1}` };
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Presencas");
-    XLSX.writeFile(wb, `presencas_${EVENTO_NOME || "evento"}.xlsx`);
+    XLSX.writeFile(wb, `presencas_${atividade.nome || "atividade"}.xlsx`);
 }
 
 async function exportarMovimentacoesExcel() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento primeiro.");
+    const atividade = obterAtividadeAdmin("adminRelatorioEventoSelect");
+
+    if (!atividade) {
+        alert("Selecione a atividade do relatório.");
         return;
     }
 
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,tipo_movimento,horario,inscritos(nome)&order=horario.asc`,
+        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${atividade.id}&select=numero_inscricao,tipo_movimento,horario,inscritos(nome)&order=horario.asc`,
         { headers: headers() }
     );
 
@@ -1846,38 +2514,43 @@ async function exportarMovimentacoesExcel() {
     const ws = XLSX.utils.json_to_sheet(linhas);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Movimentacoes");
-    XLSX.writeFile(wb, `movimentacoes_${EVENTO_NOME || "evento"}.xlsx`);
+    XLSX.writeFile(wb, `movimentacoes_${atividade.nome || "atividade"}.xlsx`);
 }
 
 async function limparEventoAtual() {
-    if (!EVENTO_ID) {
-        alert("Selecione um evento primeiro.");
+    const atividade = obterAtividadeAdmin("adminRiscoEventoSelect");
+
+    if (!atividade) {
+        alert("Selecione a atividade que deseja limpar.");
         return;
     }
 
-    const confirmar = confirm(`Tem certeza que deseja limpar TODOS os dados do evento "${EVENTO_NOME}"?`);
+    const confirmar = confirm(`Tem certeza que deseja limpar TODOS os dados da atividade "${atividade.nome}"?`);
     if (!confirmar) return;
 
-    const r0 = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}`, {
+    const r0 = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${atividade.id}`, {
         method: "DELETE",
         headers: headers()
     });
 
-    const r1 = await fetch(`${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}`, {
+    const r1 = await fetch(`${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${atividade.id}`, {
         method: "DELETE",
         headers: headers()
     });
 
-    const r2 = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}`, {
+    const r2 = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${atividade.id}`, {
         method: "DELETE",
         headers: headers()
     });
 
     if (r0.ok && r1.ok && r2.ok) {
-        alert("Evento limpo com sucesso.");
-        carregarPresencas();
-        carregarMovimentacoes();
-        atualizarDashboard();
+        alert(`Atividade "${atividade.nome}" limpa com sucesso.`);
+        if (String(EVENTO_ID) === String(atividade.id)) {
+            carregarPresencas();
+            carregarMovimentacoes();
+            atualizarDashboard();
+        }
+        atualizarResumoGeralAdmin();
     } else {
         const erro0 = !r0.ok ? await r0.text() : "";
         const erro1 = !r1.ok ? await r1.text() : "";
@@ -1944,10 +2617,19 @@ async function resetCompleto() {
     document.getElementById("eventoSelect").innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
     EVENTO_ID = "";
     EVENTO_NOME = "";
+    EVENTOS_DISPONIVEIS = [];
+    preencherSeletoresAdmin();
     limparTelaEvento();
+    atualizarResumoGeralAdmin();
 }
 
 carregarEventos();
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && document.body.classList.contains("admin-open")) {
+        fecharAdmin();
+    }
+});
 
 setInterval(() => {
     if (EVENTO_ID) {
