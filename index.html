@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Check-in COMUSCS — Interface 2026</title>
 
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-/* Interface 2026-08-05.7 — câmera compatível e relatório geral */
+/* Interface 2026-08-05.8 — vídeo próprio compatível com iPhone e relatório geral */
 :root {
     --navy-950: #071a2e;
     --navy-900: #0a2744;
@@ -302,22 +302,77 @@ button:focus-visible, .admin-nav-button:focus-visible { outline: 3px solid rgba(
 }
 
 #reader {
+    position: relative;
     width: min(420px, 100%);
-    min-height: 14px;
+    min-height: 220px;
     margin: auto;
     overflow: hidden;
     border: 0 !important;
     border-radius: 12px;
+    background: #111b26;
 }
 
-#reader:empty::before {
-    content: "A visualização da câmera aparecerá aqui";
-    display: block;
+#cameraVideo {
+    display: none;
+    width: 100%;
+    height: auto;
+    min-height: 220px;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #111b26;
+}
+
+#reader.camera-active #cameraVideo { display: block; }
+
+.camera-placeholder {
+    display: grid;
+    min-height: 220px;
     padding: 36px 16px;
+    place-items: center;
     color: var(--ink-500);
+    background: linear-gradient(145deg, #f8fbff, #eef5fb);
     font-size: 13px;
     text-align: center;
 }
+
+#reader.camera-active .camera-placeholder { display: none; }
+
+.camera-overlay {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    display: none;
+    place-items: center;
+    pointer-events: none;
+}
+
+#reader.camera-active .camera-overlay { display: grid; }
+
+.camera-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(7, 26, 46, .20);
+}
+
+.camera-scan-frame {
+    position: relative;
+    z-index: 1;
+    width: min(72%, 280px);
+    aspect-ratio: 1;
+    background:
+        linear-gradient(#fff, #fff) left top / 42px 5px no-repeat,
+        linear-gradient(#fff, #fff) left top / 5px 42px no-repeat,
+        linear-gradient(#fff, #fff) right top / 42px 5px no-repeat,
+        linear-gradient(#fff, #fff) right top / 5px 42px no-repeat,
+        linear-gradient(#fff, #fff) left bottom / 42px 5px no-repeat,
+        linear-gradient(#fff, #fff) left bottom / 5px 42px no-repeat,
+        linear-gradient(#fff, #fff) right bottom / 42px 5px no-repeat,
+        linear-gradient(#fff, #fff) right bottom / 5px 42px no-repeat;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.35));
+}
+
+#qrCanvas { display: none; }
 
 .result {
     display: grid;
@@ -608,7 +663,12 @@ tbody tr:hover { background: var(--blue-50); }
     </div>
 
     <div class="reader-shell">
-      <div id="reader"></div>
+      <div id="reader">
+        <video id="cameraVideo" autoplay muted playsinline webkit-playsinline aria-label="Visualização da câmera"></video>
+        <div class="camera-placeholder">A visualização da câmera aparecerá aqui</div>
+        <div class="camera-overlay" aria-hidden="true"><div class="camera-scan-frame"></div></div>
+        <canvas id="qrCanvas"></canvas>
+      </div>
     </div>
 
     <div class="result" id="resultado" role="status" aria-live="polite"></div>
@@ -696,7 +756,7 @@ tbody tr:hover { background: var(--blue-50); }
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-08-05.7</strong>
+        <strong>Versão 2026-08-05.8</strong>
         Interface mobile · dados acadêmicos
       </div>
     </aside>
@@ -842,10 +902,14 @@ let EVENTO_ID = "";
 let EVENTO_NOME = "";
 let EVENTOS_DISPONIVEIS = [];
 
-let html5QrCode = null;
 let cameraAtiva = false;
 let camerasDisponiveis = [];
 let cameraIndexAtual = 0;
+let cameraStream = null;
+let cameraScanFrame = null;
+let ultimoQuadroProcessado = 0;
+let detectorQrNativo = null;
+let decodificacaoEmCurso = false;
 
 function headers(extra = {}) {
     return {
@@ -1016,7 +1080,10 @@ function resetarLeitura() {
 
 function camerasComIdValido(cameras) {
     return (Array.isArray(cameras) ? cameras : []).filter(camera =>
-        camera && typeof camera.id === "string" && camera.id.trim() !== ""
+        camera &&
+        (camera.kind === undefined || camera.kind === "videoinput") &&
+        typeof camera.id === "string" &&
+        camera.id.trim() !== ""
     );
 }
 
@@ -1024,31 +1091,6 @@ function indiceCameraTraseira(cameras) {
     return cameras.findIndex(camera =>
         /back|rear|environment|traseir|traser/i.test(camera.label || "")
     );
-}
-
-async function obterFonteCameraInicial() {
-    try {
-        camerasDisponiveis = camerasComIdValido(await Html5Qrcode.getCameras());
-
-        if (camerasDisponiveis.length) {
-            const indiceTraseira = indiceCameraTraseira(camerasDisponiveis);
-            cameraIndexAtual = indiceTraseira >= 0 ? indiceTraseira : 0;
-            return camerasDisponiveis[cameraIndexAtual].id;
-        }
-    } catch (erro) {
-        const nome = erro?.name || "";
-        const mensagem = String(erro?.message || erro || "");
-
-        if (nome === "NotAllowedError" || /permission|permiss[aã]o|denied/i.test(mensagem)) {
-            throw erro;
-        }
-
-        console.warn("Não foi possível obter a lista de câmeras; usando a seleção do navegador:", erro);
-    }
-
-    // O html5-qrcode 2.3.8 aceita facingMode como texto ou com `exact`.
-    // `ideal` não é aceito pelo validador dessa versão.
-    return { facingMode: "environment" };
 }
 
 function mensagemErroCamera(erro) {
@@ -1071,97 +1113,227 @@ function mensagemErroCamera(erro) {
         return "Não foi possível usar a câmera. Feche outros aplicativos que estejam usando-a e tente novamente.";
     }
 
-    if (/cameraIdOrConfig is required/i.test(mensagem)) {
-        return "O navegador não forneceu uma câmera válida. Atualize a página e autorize o acesso à câmera.";
+    if (nome === "OverconstrainedError") {
+        return "A câmera escolhida não está disponível. Tente ativar novamente ou use Alternar câmera.";
+    }
+
+    if (/não produziu imagem|nao produziu imagem/i.test(mensagem)) {
+        return "A câmera foi autorizada, mas não produziu imagem. Feche a página, abra novamente pelo Safari ou Chrome e tente outra vez.";
     }
 
     return mensagem || "Não foi possível iniciar a câmera.";
 }
 
-async function atualizarListaDeCameras(cameraUsada) {
+function prepararElementoVideo() {
+    const video = document.getElementById("cameraVideo");
+
+    video.autoplay = true;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("autoplay", "");
+    video.setAttribute("muted", "");
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.setAttribute("disablepictureinpicture", "");
+
+    return video;
+}
+
+async function abrirStreamCamera(cameraId = null) {
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
+        throw new Error("Este navegador não oferece acesso compatível à câmera.");
+    }
+
+    const video = cameraId
+        ? { deviceId: { exact: cameraId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        : { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } };
+
     try {
-        camerasDisponiveis = camerasComIdValido(await Html5Qrcode.getCameras());
+        return await navigator.mediaDevices.getUserMedia({ audio: false, video });
+    } catch (erro) {
+        const podeTentarCameraPadrao = !cameraId &&
+            !["NotAllowedError", "SecurityError", "NotReadableError"].includes(erro?.name || "");
 
-        if (typeof cameraUsada === "string") {
-            const indiceUsado = camerasDisponiveis.findIndex(camera => camera.id === cameraUsada);
-            if (indiceUsado >= 0) cameraIndexAtual = indiceUsado;
+        if (!podeTentarCameraPadrao) throw erro;
+        return navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+    }
+}
+
+function esperarVideoPronto(video, limiteMs = 6000) {
+    if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+        let encerrado = false;
+        let temporizador = null;
+
+        const limpar = () => {
+            ["loadedmetadata", "loadeddata", "canplay", "playing"].forEach(evento =>
+                video.removeEventListener(evento, verificar)
+            );
+            if (temporizador) clearTimeout(temporizador);
+        };
+
+        const verificar = () => {
+            if (encerrado) return;
+            if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+                encerrado = true;
+                limpar();
+                resolve();
+            }
+        };
+
+        ["loadedmetadata", "loadeddata", "canplay", "playing"].forEach(evento =>
+            video.addEventListener(evento, verificar)
+        );
+
+        temporizador = setTimeout(() => {
+            if (encerrado) return;
+            encerrado = true;
+            limpar();
+            reject(new Error("A câmera foi aberta, mas não produziu imagem."));
+        }, limiteMs);
+
+        verificar();
+    });
+}
+
+function prepararDecodificadorQr() {
+    if (typeof window.jsQR === "function") return;
+
+    if ("BarcodeDetector" in window) {
+        try {
+            detectorQrNativo = detectorQrNativo || new BarcodeDetector({ formats: ["qr_code"] });
             return;
+        } catch (erro) {
+            console.warn("Leitor QR nativo indisponível:", erro);
         }
+    }
 
-        const indiceTraseira = indiceCameraTraseira(camerasDisponiveis);
-        if (indiceTraseira >= 0) cameraIndexAtual = indiceTraseira;
+    throw new Error("O leitor de QR Code não foi carregado. Atualize a página e tente novamente.");
+}
+
+async function atualizarListaDeCameras() {
+    try {
+        const dispositivos = await navigator.mediaDevices.enumerateDevices();
+        camerasDisponiveis = camerasComIdValido(
+            dispositivos
+                .filter(dispositivo => dispositivo.kind === "videoinput")
+                .map(dispositivo => ({ id: dispositivo.deviceId, label: dispositivo.label || "Câmera" }))
+        );
+
+        const idEmUso = cameraStream?.getVideoTracks?.()[0]?.getSettings?.().deviceId || "";
+        const indiceUsado = camerasDisponiveis.findIndex(camera => camera.id === idEmUso);
+
+        if (indiceUsado >= 0) {
+            cameraIndexAtual = indiceUsado;
+        } else {
+            const indiceTraseira = indiceCameraTraseira(camerasDisponiveis);
+            cameraIndexAtual = indiceTraseira >= 0 ? indiceTraseira : 0;
+        }
     } catch (erro) {
         console.warn("Não foi possível listar as câmeras para alternância:", erro);
         camerasDisponiveis = [];
     }
 }
 
-async function iniciarCamera(cameraIdOuConfig = null) {
+async function processarQuadroCamera(timestamp) {
+    if (!cameraAtiva) return;
+
+    cameraScanFrame = requestAnimationFrame(processarQuadroCamera);
+
+    if (decodificacaoEmCurso || processando || timestamp - ultimoQuadroProcessado < 120) return;
+
+    const video = document.getElementById("cameraVideo");
+    if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+
+    ultimoQuadroProcessado = timestamp;
+    decodificacaoEmCurso = true;
+
+    try {
+        const canvas = document.getElementById("qrCanvas");
+        const contexto = canvas.getContext("2d", { willReadFrequently: true });
+        const largura = Math.min(video.videoWidth, 720);
+        const altura = Math.max(1, Math.round(video.videoHeight * (largura / video.videoWidth)));
+
+        if (canvas.width !== largura || canvas.height !== altura) {
+            canvas.width = largura;
+            canvas.height = altura;
+        }
+
+        contexto.drawImage(video, 0, 0, largura, altura);
+        let codigo = "";
+
+        if (typeof window.jsQR === "function") {
+            const pixels = contexto.getImageData(0, 0, largura, altura);
+            const resultado = window.jsQR(pixels.data, largura, altura, { inversionAttempts: "attemptBoth" });
+            codigo = resultado?.data || "";
+        } else if (detectorQrNativo) {
+            const resultados = await detectorQrNativo.detect(canvas);
+            codigo = resultados[0]?.rawValue || "";
+        }
+
+        if (codigo) registrarPresenca(String(codigo));
+    } catch (erro) {
+        console.warn("Não foi possível processar este quadro da câmera:", erro);
+    } finally {
+        decodificacaoEmCurso = false;
+    }
+}
+
+async function iniciarCamera(cameraId = null) {
     const btn = document.getElementById("btnCamera");
     const btnTrocar = document.getElementById("btnTrocarCamera");
+    const reader = document.getElementById("reader");
+    const video = prepararElementoVideo();
 
-    if (typeof Html5Qrcode === "undefined") {
-        throw new Error("O leitor de QR Code não foi carregado. Atualize a página e tente novamente.");
-    }
+    prepararDecodificadorQr();
 
-    if (!html5QrCode) {
-        html5QrCode = new Html5Qrcode("reader");
-    }
+    try {
+        cameraStream = await abrirStreamCamera(cameraId);
+        video.srcObject = cameraStream;
+        reader.classList.add("camera-active");
 
-    let fonteCamera;
+        await video.play();
+        await esperarVideoPronto(video);
 
-    if (typeof cameraIdOuConfig === "string" && cameraIdOuConfig.trim() !== "") {
-        fonteCamera = cameraIdOuConfig.trim();
-    } else if (cameraIdOuConfig && typeof cameraIdOuConfig === "object") {
-        const facingMode = cameraIdOuConfig.facingMode;
+        cameraAtiva = true;
+        ultimoQuadroProcessado = 0;
+        btn.innerText = "Desativar câmera";
 
-        if (typeof facingMode === "string") {
-            fonteCamera = { facingMode };
-        } else if (facingMode && typeof facingMode.exact === "string") {
-            fonteCamera = { facingMode: { exact: facingMode.exact } };
-        } else {
-            fonteCamera = await obterFonteCameraInicial();
-        }
-    } else {
-        fonteCamera = await obterFonteCameraInicial();
-    }
-
-    await html5QrCode.start(
-        fonteCamera,
-        {
-            fps: 10,
-            qrbox: (largura, altura) => {
-                const lado = Math.floor(Math.min(largura, altura) * 0.72);
-                return { width: lado, height: lado };
-            }
-        },
-        qrCodeMessage => registrarPresenca(qrCodeMessage),
-        errorMessage => {}
-    );
-
-    cameraAtiva = true;
-    btn.innerText = "Desativar câmera";
-
-    await atualizarListaDeCameras(fonteCamera);
-
-    if (camerasDisponiveis.length > 1) {
-        btnTrocar.style.display = "inline-block";
-    } else {
-        btnTrocar.style.display = "none";
+        await atualizarListaDeCameras();
+        btnTrocar.style.display = camerasDisponiveis.length > 1 ? "inline-flex" : "none";
+        cameraScanFrame = requestAnimationFrame(processarQuadroCamera);
+    } catch (erro) {
+        cameraStream?.getTracks?.().forEach(track => track.stop());
+        cameraStream = null;
+        video.pause();
+        video.srcObject = null;
+        reader.classList.remove("camera-active");
+        throw erro;
     }
 }
 
 async function pararCamera() {
     const btn = document.getElementById("btnCamera");
     const btnTrocar = document.getElementById("btnTrocarCamera");
+    const video = document.getElementById("cameraVideo");
 
-    if (html5QrCode) {
-        if (cameraAtiva) await html5QrCode.stop();
-        await html5QrCode.clear();
+    cameraAtiva = false;
+    decodificacaoEmCurso = false;
+
+    if (cameraScanFrame) {
+        cancelAnimationFrame(cameraScanFrame);
+        cameraScanFrame = null;
     }
 
-    html5QrCode = null;
-    cameraAtiva = false;
+    cameraStream?.getTracks?.().forEach(track => track.stop());
+    cameraStream = null;
+    video.pause();
+    video.srcObject = null;
+    document.getElementById("reader").classList.remove("camera-active");
     btn.innerText = "Ativar câmera";
     btnTrocar.style.display = "none";
 }
@@ -1174,17 +1346,14 @@ async function toggleCamera() {
             await pararCamera();
         }
     } catch (err) {
-        cameraAtiva = false;
-        html5QrCode = null;
-        document.getElementById("btnCamera").innerText = "Ativar câmera";
-        document.getElementById("btnTrocarCamera").style.display = "none";
+        await pararCamera();
         alert("Erro na câmera: " + mensagemErroCamera(err));
     }
 }
 
 async function trocarCamera() {
     try {
-        camerasDisponiveis = camerasComIdValido(await Html5Qrcode.getCameras());
+        await atualizarListaDeCameras();
 
         if (camerasDisponiveis.length <= 1) {
             alert("Só há uma câmera disponível.");
@@ -1199,10 +1368,7 @@ async function trocarCamera() {
         await iniciarCamera(proximaCameraId);
 
     } catch (err) {
-        cameraAtiva = false;
-        html5QrCode = null;
-        document.getElementById("btnCamera").innerText = "Ativar câmera";
-        document.getElementById("btnTrocarCamera").style.display = "none";
+        await pararCamera();
         alert("Erro ao alternar câmera: " + mensagemErroCamera(err));
     }
 }
