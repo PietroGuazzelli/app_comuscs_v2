@@ -204,14 +204,14 @@ button, select, input {
 <section class="hero" aria-label="Capa do congresso COMUSCS">
   <div class="hero-content">
     <p class="hero-kicker">11ª Edição do Congresso Médico Universitário de São Caetano do Sul</p>
-    <h1 class="hero-title">PRÉ COMUSCS</h1>
-    <p class="hero-date">15 de agosto de 2026</p>
+    <h1 class="hero-title">XICOMUSCS</h1>
+    <p class="hero-date">7, 8 e 9 de outubro de 2026</p>
   </div>
 </section>
 
 <main class="page-wrapper">
 
-<h2>Credenciamento COMUSCS</h2>
+<h2>Check-in COMUSCS</h2>
 
 <label>Evento:</label>
 <select id="eventoSelect" onchange="trocarEvento()">
@@ -304,14 +304,18 @@ button, select, input {
 
   <h3>Gestão do Evento</h3>
 
-  <h4>Importar Excel completo do Even3</h4>
+  <h4>Importar planilhas do Even3</h4>
   <p>
-    Selecione a planilha <strong>Lista Inscritos</strong>. O app criará ou atualizará
-    automaticamente todas as atividades e seus respectivos participantes.
+    Selecione as duas planilhas. O app cruzará o <strong>ID do participante</strong>
+    com o <strong>Número de inscrição</strong>, criará ou atualizará as atividades e
+    usará o Número de inscrição na leitura do QR Code.
   </p>
-  <input type="file" id="excelEven3Input" accept=".xlsx,.xls">
+  <label for="excelInscritosEven3Input"><strong>1. Lista Inscritos (atividades)</strong></label><br>
+  <input type="file" id="excelInscritosEven3Input" accept=".xlsx,.xls"><br>
+  <label for="excelParticipantesEven3Input"><strong>2. ListaParticipante (números de inscrição)</strong></label><br>
+  <input type="file" id="excelParticipantesEven3Input" accept=".xlsx,.xls"><br>
   <button id="btnImportarExcelEven3" onclick="importarExcelEven3()">
-    Importar atividades e participantes
+    Cruzar planilhas e importar
   </button>
   <div id="importacaoEven3Status" class="import-status" style="display:none;"></div>
 
@@ -618,6 +622,44 @@ function obterCampo(row, possibilidades) {
     return "";
 }
 
+function normalizarDocumento(valor) {
+    return String(valor || "").replace(/\D/g, "");
+}
+
+function validarCabecalhos(rows, obrigatorios, nomeArquivo) {
+    const cabecalhos = Object.keys(rows[0] || {}).map(normalizarTexto);
+    const faltantes = obrigatorios.filter(campo =>
+        !cabecalhos.includes(normalizarTexto(campo))
+    );
+
+    if (faltantes.length) {
+        throw new Error(
+            `${nomeArquivo}: colunas obrigatórias não encontradas: ${faltantes.join(", ")}.`
+        );
+    }
+}
+
+async function lerPrimeiraAbaExcel(arquivo, nomeArquivo) {
+    const dadosArquivo = await arquivo.arrayBuffer();
+    const workbook = XLSX.read(dadosArquivo, { type: "array" });
+
+    if (!workbook.SheetNames.length) {
+        throw new Error(`${nomeArquivo}: o arquivo não possui nenhuma planilha.`);
+    }
+
+    const primeiraAba = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(primeiraAba, {
+        defval: "",
+        raw: false
+    });
+
+    if (!rows.length) {
+        throw new Error(`${nomeArquivo}: a planilha está vazia.`);
+    }
+
+    return rows;
+}
+
 function definirStatusImportacao(mensagem, tipo = "info") {
     const status = document.getElementById("importacaoEven3Status");
     status.style.display = "block";
@@ -630,12 +672,7 @@ function definirStatusImportacao(mensagem, tipo = "info") {
 
 function analisarLinhasEven3(rows) {
     const obrigatorios = ["Id", "Atividade", "Id do participante", "Nome"];
-    const cabecalhos = Object.keys(rows[0] || {}).map(normalizarTexto);
-    const faltantes = obrigatorios.filter(campo => !cabecalhos.includes(normalizarTexto(campo)));
-
-    if (faltantes.length) {
-        throw new Error(`Colunas obrigatórias não encontradas: ${faltantes.join(", ")}.`);
-    }
+    validarCabecalhos(rows, obrigatorios, "Lista Inscritos");
 
     const registros = [];
     const atividades = new Map();
@@ -689,6 +726,181 @@ function analisarLinhasEven3(rows) {
     };
 }
 
+function analisarListaParticipantes(rows) {
+    validarCabecalhos(
+        rows,
+        ["ID", "Número de Inscrição", "Documento"],
+        "ListaParticipante"
+    );
+
+    const participantesPorId = new Map();
+    const numeroParaId = new Map();
+    const conflitos = [];
+    let linhasIgnoradas = 0;
+    let semNumeroInscricao = 0;
+    let duplicadosIgnorados = 0;
+
+    rows.forEach((row, indice) => {
+        const participanteId = obterCampo(row, ["ID", "Id do participante"]);
+        const numeroInscricao = obterCampo(row, [
+            "Número de Inscrição",
+            "Numero de Inscricao",
+            "Número da Inscrição"
+        ]);
+        const nome = obterCampo(row, ["Nome", "Nome do participante"]);
+        const email = obterCampo(row, ["E-mail", "Email"]);
+        const documento = obterCampo(row, ["Documento", "CPF"]);
+
+        if (!/^\d{3,}$/.test(participanteId) || !nome || /^\d+$/.test(nome)) {
+            linhasIgnoradas++;
+            return;
+        }
+
+        if (!/^\d{3,}$/.test(numeroInscricao)) {
+            semNumeroInscricao++;
+        }
+
+        const participante = {
+            participanteId,
+            numeroInscricao: /^\d{3,}$/.test(numeroInscricao) ? numeroInscricao : "",
+            nome,
+            email,
+            documento
+        };
+
+        const anterior = participantesPorId.get(participanteId);
+        if (anterior) {
+            const numeroConflitante = anterior.numeroInscricao && participante.numeroInscricao &&
+                anterior.numeroInscricao !== participante.numeroInscricao;
+            const documentoAnterior = normalizarDocumento(anterior.documento);
+            const documentoAtual = normalizarDocumento(participante.documento);
+            const documentoConflitante = documentoAnterior && documentoAtual &&
+                documentoAnterior !== documentoAtual;
+
+            if (numeroConflitante || documentoConflitante) {
+                conflitos.push(
+                    `linha ${indice + 2}: ID ${participanteId} aparece com dados diferentes`
+                );
+                return;
+            }
+
+            duplicadosIgnorados++;
+            if (!anterior.numeroInscricao && participante.numeroInscricao) {
+                const outroId = numeroParaId.get(participante.numeroInscricao);
+                if (outroId && outroId !== participanteId) {
+                    conflitos.push(
+                        `linha ${indice + 2}: Número de inscrição ${participante.numeroInscricao} ` +
+                        `está associado aos IDs ${outroId} e ${participanteId}`
+                    );
+                    return;
+                }
+                participantesPorId.set(participanteId, participante);
+                numeroParaId.set(participante.numeroInscricao, participanteId);
+            }
+            return;
+        }
+
+        participantesPorId.set(participanteId, participante);
+
+        if (participante.numeroInscricao) {
+            const outroId = numeroParaId.get(participante.numeroInscricao);
+            if (outroId && outroId !== participanteId) {
+                conflitos.push(
+                    `linha ${indice + 2}: Número de inscrição ${participante.numeroInscricao} ` +
+                    `está associado aos IDs ${outroId} e ${participanteId}`
+                );
+            } else {
+                numeroParaId.set(participante.numeroInscricao, participanteId);
+            }
+        }
+    });
+
+    return {
+        participantesPorId,
+        linhasIgnoradas,
+        semNumeroInscricao,
+        duplicadosIgnorados,
+        conflitos
+    };
+}
+
+function cruzarPlanilhasEven3(rowsInscritos, rowsParticipantes) {
+    const atividades = analisarLinhasEven3(rowsInscritos);
+    const participantes = analisarListaParticipantes(rowsParticipantes);
+
+    if (participantes.conflitos.length) {
+        throw new Error(
+            `A ListaParticipante possui dados conflitantes:\n` +
+            participantes.conflitos.slice(0, 5).join("\n")
+        );
+    }
+
+    const registros = [];
+    const semCorrespondencia = [];
+    const semNumeroInscricao = [];
+    const documentosDivergentes = [];
+
+    atividades.registros.forEach(registro => {
+        const participante = participantes.participantesPorId.get(registro.participanteId);
+
+        if (!participante) {
+            semCorrespondencia.push(registro);
+            return;
+        }
+
+        if (!participante.numeroInscricao) {
+            semNumeroInscricao.push(registro);
+            return;
+        }
+
+        const documentoInscrito = normalizarDocumento(registro.documento);
+        const documentoParticipante = normalizarDocumento(participante.documento);
+
+        if (documentoInscrito && documentoParticipante &&
+            documentoInscrito !== documentoParticipante) {
+            documentosDivergentes.push(registro);
+            return;
+        }
+
+        registros.push({
+            ...registro,
+            numeroInscricao: participante.numeroInscricao,
+            nome: registro.nome || participante.nome,
+            email: registro.email || participante.email,
+            documento: registro.documento || participante.documento
+        });
+    });
+
+    if (documentosDivergentes.length) {
+        const exemplos = documentosDivergentes.slice(0, 5)
+            .map(r => `${r.nome} (ID ${r.participanteId})`)
+            .join(", ");
+        throw new Error(
+            `${documentosDivergentes.length} participante(s) possuem documento/CPF divergente ` +
+            `entre as duas planilhas. Nenhum dado foi gravado. Exemplos: ${exemplos}.`
+        );
+    }
+
+    const registrosUnicos = Array.from(new Map(
+        registros.map(registro => [
+            `${registro.atividadeId}-${registro.numeroInscricao}`,
+            registro
+        ])
+    ).values());
+
+    return {
+        atividades: atividades.atividades,
+        registros: registrosUnicos,
+        linhasInscritosIgnoradas: atividades.linhasIgnoradas,
+        linhasParticipantesIgnoradas: participantes.linhasIgnoradas,
+        participantesSemCorrespondencia: semCorrespondencia,
+        participantesSemNumero: semNumeroInscricao,
+        duplicadosIgnorados: atividades.duplicadosIgnorados +
+            participantes.duplicadosIgnorados +
+            (registros.length - registrosUnicos.length)
+    };
+}
+
 async function postarEmLotes(tabela, payload, conflito, tamanhoLote = 500) {
     for (let inicio = 0; inicio < payload.length; inicio += tamanhoLote) {
         const lote = payload.slice(inicio, inicio + tamanhoLote);
@@ -710,41 +922,151 @@ async function postarEmLotes(tabela, payload, conflito, tamanhoLote = 500) {
     }
 }
 
-async function importarExcelEven3() {
-    const input = document.getElementById("excelEven3Input");
-    const botao = document.getElementById("btnImportarExcelEven3");
-    const arquivo = input.files[0];
+async function atualizarReferenciasNumeroInscricao(inscritoId, numeroInscricao) {
+    for (const tabela of ["presencas", "movimentacoes_presenca"]) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/${tabela}?inscrito_id=eq.${encodeURIComponent(inscritoId)}`,
+            {
+                method: "PATCH",
+                headers: headers({
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal"
+                }),
+                body: JSON.stringify({ numero_inscricao: numeroInscricao })
+            }
+        );
 
-    if (!arquivo) {
-        alert("Selecione o arquivo Excel Lista Inscritos do Even3.");
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+    }
+}
+
+async function salvarParticipantesEven3(participantes) {
+    const idsEventos = Array.from(new Set(participantes.map(p => p.evento_id)));
+    const filtroEventos = `(${idsEventos.join(",")})`;
+    const resExistentes = await fetch(
+        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=in.${encodeURIComponent(filtroEventos)}` +
+        `&select=id,evento_id,numero_inscricao,even3_participante_id`,
+        { headers: headers() }
+    );
+
+    if (!resExistentes.ok) {
+        throw new Error(await resExistentes.text());
+    }
+
+    const existentes = await resExistentes.json();
+    const porIdEven3 = new Map();
+    const porNumero = new Map();
+
+    existentes.forEach(item => {
+        if (item.even3_participante_id) {
+            porIdEven3.set(
+                `${item.evento_id}-${String(item.even3_participante_id)}`,
+                item
+            );
+        }
+        porNumero.set(`${item.evento_id}-${String(item.numero_inscricao)}`, item);
+    });
+
+    const novos = [];
+    let atualizados = 0;
+
+    for (const participante of participantes) {
+        const chaveId = `${participante.evento_id}-${participante.even3_participante_id}`;
+        const chaveNumero = `${participante.evento_id}-${participante.numero_inscricao}`;
+        const existentePorId = porIdEven3.get(chaveId);
+        const existentePorNumero = porNumero.get(chaveNumero);
+        const candidatoLegado = porNumero.get(chaveId);
+        const legadoPorIdNoNumero = candidatoLegado &&
+            (!candidatoLegado.even3_participante_id ||
+             String(candidatoLegado.even3_participante_id) === participante.even3_participante_id)
+            ? candidatoLegado
+            : null;
+        const candidatos = Array.from(new Map(
+            [existentePorId, existentePorNumero, legadoPorIdNoNumero]
+                .filter(Boolean)
+                .map(item => [item.id, item])
+        ).values());
+
+        if (candidatos.length > 1) {
+            throw new Error(
+                `Conflito no banco para o participante ${participante.nome}: ` +
+                `o ID interno e o Número de inscrição apontam para registros diferentes.`
+            );
+        }
+
+        const existente = candidatos[0];
+
+        if (!existente) {
+            novos.push(participante);
+            continue;
+        }
+
+        if (String(existente.numero_inscricao) !== participante.numero_inscricao) {
+            await atualizarReferenciasNumeroInscricao(
+                existente.id,
+                participante.numero_inscricao
+            );
+        }
+
+        const resAtualizacao = await fetch(
+            `${SUPABASE_URL}/rest/v1/inscritos?id=eq.${encodeURIComponent(existente.id)}`,
+            {
+                method: "PATCH",
+                headers: headers({
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal"
+                }),
+                body: JSON.stringify(participante)
+            }
+        );
+
+        if (!resAtualizacao.ok) {
+            throw new Error(await resAtualizacao.text());
+        }
+
+        atualizados++;
+    }
+
+    if (novos.length) {
+        await postarEmLotes(
+            "inscritos",
+            novos,
+            "evento_id,numero_inscricao"
+        );
+    }
+
+    return { criados: novos.length, atualizados };
+}
+
+async function importarExcelEven3() {
+    const inputInscritos = document.getElementById("excelInscritosEven3Input");
+    const inputParticipantes = document.getElementById("excelParticipantesEven3Input");
+    const botao = document.getElementById("btnImportarExcelEven3");
+    const arquivoInscritos = inputInscritos.files[0];
+    const arquivoParticipantes = inputParticipantes.files[0];
+
+    if (!arquivoInscritos || !arquivoParticipantes) {
+        alert("Selecione as duas planilhas: Lista Inscritos e ListaParticipante.");
         return;
     }
 
     botao.disabled = true;
-    definirStatusImportacao("Lendo e validando o arquivo...");
+    definirStatusImportacao("Lendo, cruzando e validando as duas planilhas...");
 
     try {
-        const dadosArquivo = await arquivo.arrayBuffer();
-        const workbook = XLSX.read(dadosArquivo, { type: "array" });
+        const [rowsInscritos, rowsParticipantes] = await Promise.all([
+            lerPrimeiraAbaExcel(arquivoInscritos, "Lista Inscritos"),
+            lerPrimeiraAbaExcel(arquivoParticipantes, "ListaParticipante")
+        ]);
 
-        if (!workbook.SheetNames.length) {
-            throw new Error("O arquivo não possui nenhuma planilha.");
-        }
-
-        const primeiraAba = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(primeiraAba, {
-            defval: "",
-            raw: false
-        });
-
-        if (!rows.length) {
-            throw new Error("A planilha está vazia.");
-        }
-
-        const analise = analisarLinhasEven3(rows);
+        const analise = cruzarPlanilhasEven3(rowsInscritos, rowsParticipantes);
 
         if (!analise.atividades.length || !analise.registros.length) {
-            throw new Error("Nenhuma atividade ou inscrição válida foi encontrada.");
+            throw new Error(
+                "Nenhuma atividade com participante e Número de inscrição válido foi encontrada."
+            );
         }
 
         const resumoAtividades = analise.atividades
@@ -759,8 +1081,11 @@ async function importarExcelEven3() {
         const confirmar = confirm(
             `Prévia da importação:\n\n` +
             `${analise.atividades.length} atividade(s)\n` +
-            `${analise.registros.length} inscrição(ões) válida(s)\n` +
-            `${analise.linhasIgnoradas} linha(s) inválida(s) ignorada(s)\n` +
+            `${analise.registros.length} inscrição(ões) cruzada(s) pelo ID do participante\n` +
+            `${analise.participantesSemCorrespondencia.length} vínculo(s) sem correspondência na ListaParticipante\n` +
+            `${analise.participantesSemNumero.length} vínculo(s) sem Número de inscrição\n` +
+            `${analise.linhasInscritosIgnoradas} linha(s) inválida(s) da Lista Inscritos ignorada(s)\n` +
+            `${analise.linhasParticipantesIgnoradas} linha(s) inválida(s) da ListaParticipante ignorada(s)\n` +
             `${analise.duplicadosIgnorados} duplicidade(s) ignorada(s)\n\n` +
             `${resumoAtividades}\n\n` +
             `Deseja criar/atualizar esses dados no aplicativo?`
@@ -848,35 +1173,34 @@ async function importarExcelEven3() {
         const participantes = analise.registros.map(registro => ({
             evento_id: eventoPorIdEven3.get(registro.atividadeId),
             nome: registro.nome,
-            numero_inscricao: registro.participanteId,
+            numero_inscricao: registro.numeroInscricao,
             even3_participante_id: registro.participanteId,
             email: registro.email || null,
             documento: registro.documento || null,
             inscricao_evento: registro.inscricaoEvento || null
         }));
 
-        await postarEmLotes(
-            "inscritos",
-            participantes,
-            "evento_id,numero_inscricao"
-        );
+        const resultadoGravacao = await salvarParticipantesEven3(participantes);
 
         definirStatusImportacao(
             `Importação concluída com sucesso!\n` +
             `${analise.atividades.length} atividade(s) criada(s)/atualizada(s).\n` +
-            `${participantes.length} inscrição(ões) criada(s)/atualizada(s).\n` +
-            `${analise.linhasIgnoradas} linha(s) inválida(s) ignorada(s).`,
+            `${resultadoGravacao.criados} inscrição(ões) criada(s).\n` +
+            `${resultadoGravacao.atualizados} inscrição(ões) atualizada(s).\n` +
+            `${analise.participantesSemCorrespondencia.length + analise.participantesSemNumero.length} ` +
+            `vínculo(s) sem Número de inscrição ignorado(s).`,
             "ok"
         );
 
-        input.value = "";
+        inputInscritos.value = "";
+        inputParticipantes.value = "";
         await carregarEventos();
 
     } catch (err) {
         console.error("Erro na importação Even3:", err);
         definirStatusImportacao(
             `Erro ao importar: ${err.message}\n\n` +
-            `Se esta for a primeira utilização da nova planilha, confira se a atualização do Supabase foi executada.`,
+            `Confira se foram selecionados os relatórios Lista Inscritos e ListaParticipante corretos.`,
             "erro"
         );
     } finally {
@@ -1186,7 +1510,7 @@ async function registrarPresenca(qrCodeMessage) {
     let numeroInscricao = qrCodeMessage.trim();
 
     const resInscrito = await fetch(
-        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=id,nome,numero_inscricao`,
+        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${encodeURIComponent(numeroInscricao)}&select=id,nome,numero_inscricao`,
         { headers: headers() }
     );
 
