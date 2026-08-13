@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-/* Interface 2026-08-13.1 — controle de colaboradores por CPF */
+/* Interface 2026-08-13.2 — senha em todas as ações da Zona de Risco */
 :root {
     --navy-950: #071a2e;
     --navy-900: #0a2744;
@@ -771,7 +771,7 @@ tbody tr:hover { background: var(--blue-50); }
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-08-13.1</strong>
+        <strong>Versão 2026-08-13.2</strong>
         Interface mobile · participantes e colaboradores
       </div>
     </aside>
@@ -949,7 +949,7 @@ tbody tr:hover { background: var(--blue-50); }
         <div class="admin-section-heading">
           <p class="eyebrow">Zona de risco</p>
           <h2>Ações destrutivas</h2>
-          <p>Estas opções apagam dados. Leia com atenção antes de continuar.</p>
+          <p>Estas opções apagam dados e exigem a senha da Zona de Risco. Leia com atenção antes de continuar.</p>
         </div>
         <div class="admin-grid">
           <article class="admin-card danger-card admin-action-card">
@@ -979,6 +979,7 @@ const SUPABASE_URL = "https://goytizsanwooamfjtvqk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Q7seQ6RlNFw1cWuHqgV4qQ_QB42w8Sp";
 
 const SENHA_ADMIN = "comuscs2026";
+const SENHA_ZONA_RISCO = "reset2026";
 const NOME_EVENTO_COLABORADORES = "__CONTROLE_COLABORADORES__";
 
 let processando = false;
@@ -1002,6 +1003,19 @@ function headers(extra = {}) {
         "Authorization": `Bearer ${SUPABASE_KEY}`,
         ...extra
     };
+}
+
+function autenticarZonaRisco(acao) {
+    const senha = prompt(`Digite a senha da Zona de Risco para ${acao}:`);
+
+    if (senha === null) return false;
+
+    if (senha !== SENHA_ZONA_RISCO) {
+        alert("Senha da Zona de Risco incorreta.");
+        return false;
+    }
+
+    return true;
 }
 
 async function abrirAdmin() {
@@ -2215,6 +2229,8 @@ async function limparDadosColaboradores() {
         alert("Não há dados de colaboradores para limpar.");
         return;
     }
+
+    if (!autenticarZonaRisco("limpar os colaboradores")) return;
 
     const confirmar = confirm(
         "Tem certeza que deseja apagar TODOS os colaboradores e seus registros de entrada e saída?"
@@ -3443,6 +3459,8 @@ async function limparEventoAtual() {
         return;
     }
 
+    if (!autenticarZonaRisco(`limpar a atividade “${atividade.nome}”`)) return;
+
     const confirmar = confirm(`Tem certeza que deseja limpar TODOS os dados da atividade "${atividade.nome}"?`);
     if (!confirmar) return;
 
@@ -3478,13 +3496,9 @@ async function limparEventoAtual() {
 }
 
 async function resetCompleto() {
-    const senha = prompt("Digite a senha master para reset completo:");
-    if (senha !== "reset2026") {
-        alert("Senha incorreta.");
-        return;
-    }
+    if (!autenticarZonaRisco("realizar o reset completo")) return;
 
-    const confirmar = confirm("ATENÇÃO: Isso vai apagar TODOS os eventos, inscritos, presenças e movimentações. Continuar?");
+    const confirmar = confirm("ATENÇÃO: Isso vai apagar TODOS os eventos, inscritos, presenças, movimentações e dados de colaboradores. Continuar?");
     if (!confirmar) return;
 
     const m = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?id=not.is.null`, {
