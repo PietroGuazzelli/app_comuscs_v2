@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-/* Interface 2026-08-05.8 — vídeo próprio compatível com iPhone e relatório geral */
+/* Interface 2026-08-13.1 — controle de colaboradores por CPF */
 :root {
     --navy-950: #071a2e;
     --navy-900: #0a2744;
@@ -572,6 +572,17 @@ tbody tr:hover { background: var(--blue-50); }
 .danger-card { border-color: #f0c5c8; background: #fffafa; }
 .danger-card h4 { color: var(--danger); }
 .import-status { max-width: none; margin: 14px 0 0; padding: 13px 15px; border-radius: var(--radius-sm); color: var(--blue-800); background: var(--blue-50); text-align: left; white-space: pre-line; }
+.collaborator-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0 0; }
+.collaborator-stat { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--blue-50); }
+.collaborator-stat span { display: block; overflow: hidden; color: var(--ink-700); font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.collaborator-stat strong { display: block; margin-top: 5px; color: var(--blue-800); font-size: 25px; line-height: 1; }
+.collaborator-result { min-height: 72px; margin-top: 16px; }
+.collaborator-result:empty::before { content: "Digite o CPF para registrar a presença"; }
+.collaborator-result.is-ok { color: var(--success); border-color: #b8dfcf; background: var(--success-soft); font-weight: 850; }
+.collaborator-result.is-error { color: var(--danger); border-color: #efc1c5; background: var(--danger-soft); font-weight: 850; }
+.collaborator-result.is-warning { color: var(--warning); border-color: #f2d39d; background: var(--warning-soft); font-weight: 850; }
+.collaborator-validation-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.collaborator-validation-row button { min-width: 185px; }
 .admin-sidebar-scrim { display: none; }
 
 @media (max-width: 820px) {
@@ -584,6 +595,7 @@ tbody tr:hover { background: var(--blue-50); }
     .admin-section { padding: 20px 16px 32px; }
     .admin-grid { grid-template-columns: 1fr; }
     .admin-card-full { grid-column: auto; }
+    .collaborator-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 680px) {
@@ -612,6 +624,8 @@ tbody tr:hover { background: var(--blue-50); }
     .admin-topbar { min-height: 66px; padding: 11px 12px; }
     .admin-topbar-title strong { font-size: 14px; }
     .admin-topbar-title small { max-width: 190px; font-size: 11px; }
+    .collaborator-validation-row { grid-template-columns: 1fr; }
+    .collaborator-validation-row button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -750,14 +764,15 @@ tbody tr:hover { background: var(--blue-50); }
       <nav class="admin-nav">
         <button type="button" class="admin-nav-button is-active" data-admin-section="visao" onclick="trocarSecaoAdmin('visao')"><span aria-hidden="true">▦</span> Visão geral</button>
         <button type="button" class="admin-nav-button" data-admin-section="importacoes" onclick="trocarSecaoAdmin('importacoes')"><span aria-hidden="true">⇧</span> Importar dados</button>
+        <button type="button" class="admin-nav-button" data-admin-section="colaboradores" onclick="trocarSecaoAdmin('colaboradores')"><span aria-hidden="true">✓</span> Colaboradores</button>
         <button type="button" class="admin-nav-button" data-admin-section="eventos" onclick="trocarSecaoAdmin('eventos')"><span aria-hidden="true">＋</span> Gerenciar eventos</button>
         <button type="button" class="admin-nav-button" data-admin-section="relatorios" onclick="trocarSecaoAdmin('relatorios')"><span aria-hidden="true">⇩</span> Relatórios</button>
         <button type="button" class="admin-nav-button is-danger" data-admin-section="risco" onclick="trocarSecaoAdmin('risco')"><span aria-hidden="true">!</span> Zona de risco</button>
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-08-05.8</strong>
-        Interface mobile · dados acadêmicos
+        <strong>Versão 2026-08-13.1</strong>
+        Interface mobile · participantes e colaboradores
       </div>
     </aside>
 
@@ -824,6 +839,69 @@ tbody tr:hover { background: var(--blue-50); }
         </div>
       </section>
 
+      <section id="adminSection-colaboradores" class="admin-section">
+        <div class="admin-section-heading">
+          <p class="eyebrow">Controle de colaboradores</p>
+          <h2>Entrada e saída por CPF</h2>
+          <p>Importe a relação previamente e use o CPF para alternar automaticamente entre entrada e saída.</p>
+        </div>
+        <div class="admin-grid">
+          <article class="admin-card admin-card-full">
+            <h4>1. Importar colaboradores</h4>
+            <p class="muted">A primeira linha deve ser o cabeçalho, com o nome na coluna A e o CPF na coluna B. Arquivos aceitos: XLSX e XLS.</p>
+            <div class="admin-callout">Uma nova importação atualiza nomes e acrescenta colaboradores sem apagar registros de presença já realizados.</div>
+            <div class="field-group mt-18">
+              <label for="excelColaboradoresInput">Planilha de colaboradores</label>
+              <input type="file" id="excelColaboradoresInput" accept=".xlsx,.xls">
+            </div>
+            <div class="button-row">
+              <button type="button" id="btnImportarColaboradores" class="button-primary" onclick="importarColaboradoresExcel()">Importar colaboradores</button>
+            </div>
+            <div id="importacaoColaboradoresStatus" class="import-status initially-hidden"></div>
+          </article>
+
+          <article class="admin-card admin-card-full">
+            <h4>2. Validar presença</h4>
+            <p class="muted">Na primeira validação o sistema registra a entrada. Na validação seguinte do mesmo CPF, registra a saída.</p>
+            <form id="formValidacaoColaborador" class="collaborator-validation-row mt-18" onsubmit="registrarPresencaColaborador(event)">
+              <div class="field-group">
+                <label for="cpfColaboradorInput">CPF do colaborador</label>
+                <input id="cpfColaboradorInput" type="text" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="000.000.000-00" oninput="formatarCampoCpf(this)">
+              </div>
+              <button type="submit" id="btnValidarColaborador" class="button-primary">Validar presença</button>
+            </form>
+            <div id="resultadoColaborador" class="result collaborator-result" role="status" aria-live="polite"></div>
+            <div class="collaborator-stats" aria-label="Resumo dos colaboradores">
+              <div class="collaborator-stat"><span>Importados</span><strong id="colabResumoImportados">0</strong></div>
+              <div class="collaborator-stat"><span>Com entrada</span><strong id="colabResumoEntradas">0</strong></div>
+              <div class="collaborator-stat"><span>Com saída</span><strong id="colabResumoSaidas">0</strong></div>
+              <div class="collaborator-stat"><span>Dentro agora</span><strong id="colabResumoDentro">0</strong></div>
+            </div>
+          </article>
+
+          <article class="admin-card admin-card-full">
+            <div class="records-header" style="padding: 0 0 14px;">
+              <div>
+                <h4>Validações recentes</h4>
+                <p class="muted">Últimos registros efetuados por CPF.</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Nome</th><th>CPF</th><th>Registro</th><th>Data e horário</th></tr></thead>
+                <tbody id="listaMovimentacoesColaboradores"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="admin-card admin-card-full admin-action-card">
+            <h4>3. Exportar controle</h4>
+            <p class="muted">Gera uma planilha Excel com nome, CPF, data e horário da entrada e da saída.</p>
+            <div class="button-row"><button type="button" class="button-primary" onclick="exportarColaboradoresExcel()">Exportar presenças dos colaboradores</button></div>
+          </article>
+        </div>
+      </section>
+
       <section id="adminSection-eventos" class="admin-section">
         <div class="admin-section-heading">
           <p class="eyebrow">Gerenciar eventos</p>
@@ -881,8 +959,13 @@ tbody tr:hover { background: var(--blue-50); }
             <div class="button-row"><button type="button" class="button-warning" onclick="limparEventoAtual()">Limpar atividade selecionada</button></div>
           </article>
           <article class="admin-card danger-card admin-action-card">
+            <h4>Limpar colaboradores</h4>
+            <p class="muted">Apaga a relação importada e todos os registros de entrada e saída dos colaboradores, sem afetar as atividades.</p>
+            <div class="button-row"><button type="button" class="button-warning" onclick="limparDadosColaboradores()">Limpar dados dos colaboradores</button></div>
+          </article>
+          <article class="admin-card danger-card admin-action-card">
             <h4>Reset completo</h4>
-            <p class="muted">Apaga todas as atividades, inscritos, presenças e movimentações do aplicativo.</p>
+            <p class="muted">Apaga todas as atividades, inscritos, presenças, movimentações e dados de colaboradores do aplicativo.</p>
             <div class="button-row"><button type="button" class="button-danger" onclick="resetCompleto()">RESET COMPLETO</button></div>
           </article>
         </div>
@@ -896,8 +979,10 @@ const SUPABASE_URL = "https://goytizsanwooamfjtvqk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Q7seQ6RlNFw1cWuHqgV4qQ_QB42w8Sp";
 
 const SENHA_ADMIN = "comuscs2026";
+const NOME_EVENTO_COLABORADORES = "__CONTROLE_COLABORADORES__";
 
 let processando = false;
+let colaboradorProcessando = false;
 let EVENTO_ID = "";
 let EVENTO_NOME = "";
 let EVENTOS_DISPONIVEIS = [];
@@ -958,6 +1043,7 @@ function trocarSecaoAdmin(secao) {
     const titulos = {
         visao: "Visão geral",
         importacoes: "Importar dados",
+        colaboradores: "Controle de colaboradores",
         eventos: "Gerenciar eventos",
         relatorios: "Relatórios",
         risco: "Zona de risco"
@@ -975,6 +1061,10 @@ function trocarSecaoAdmin(secao) {
     if (titulo) titulo.textContent = titulos[secao] || "Área administrativa";
 
     if (secao === "visao") atualizarResumoGeralAdmin();
+    if (secao === "colaboradores") {
+        carregarPainelColaboradores();
+        setTimeout(() => document.getElementById("cpfColaboradorInput")?.focus(), 80);
+    }
 
     if (window.innerWidth <= 820) toggleAdminMenu(false);
 }
@@ -994,15 +1084,19 @@ async function atualizarResumoGeralAdmin() {
     if (!destinos.eventos) return;
 
     try {
+        const eventoColaboradores = await obterEventoColaboradores(false);
+        const filtroAtividades = eventoColaboradores
+            ? `evento_id=neq.${encodeURIComponent(eventoColaboradores.id)}&`
+            : "";
         const consultas = [
-            ["eventos", "eventos"],
-            ["inscritos", "inscritos"],
-            ["presencas", "presencas"],
-            ["movimentacoes", "movimentacoes_presenca"]
+            ["eventos", `eventos?nome=neq.${encodeURIComponent(NOME_EVENTO_COLABORADORES)}&select=id`],
+            ["inscritos", `inscritos?${filtroAtividades}select=id`],
+            ["presencas", `presencas?${filtroAtividades}select=id`],
+            ["movimentacoes", `movimentacoes_presenca?${filtroAtividades}select=id`]
         ];
 
-        const resultados = await Promise.all(consultas.map(async ([chave, tabela]) => {
-            const resposta = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=id`, { headers: headers() });
+        const resultados = await Promise.all(consultas.map(async ([chave, caminho]) => {
+            const resposta = await fetch(`${SUPABASE_URL}/rest/v1/${caminho}`, { headers: headers() });
             if (!resposta.ok) throw new Error(await resposta.text());
             return [chave, (await resposta.json()).length];
         }));
@@ -1384,7 +1478,8 @@ async function carregarEventos() {
         return;
     }
 
-    const eventos = await res.json();
+    const todosEventos = await res.json();
+    const eventos = todosEventos.filter(evento => evento.nome !== NOME_EVENTO_COLABORADORES);
     EVENTOS_DISPONIVEIS = eventos;
     const select = document.getElementById("eventoSelect");
 
@@ -1626,6 +1721,530 @@ async function lerPrimeiraAbaExcel(arquivo, nomeArquivo) {
     }
 
     return rows;
+}
+
+function validarCpf(cpf) {
+    const digitos = normalizarDocumento(cpf);
+    if (!/^\d{11}$/.test(digitos) || /^(\d)\1{10}$/.test(digitos)) return false;
+
+    const calcularDigito = tamanho => {
+        let soma = 0;
+        for (let i = 0; i < tamanho; i++) {
+            soma += Number(digitos[i]) * (tamanho + 1 - i);
+        }
+        const resto = (soma * 10) % 11;
+        return resto === 10 ? 0 : resto;
+    };
+
+    return calcularDigito(9) === Number(digitos[9]) &&
+        calcularDigito(10) === Number(digitos[10]);
+}
+
+function formatarCpf(valor) {
+    const cpf = normalizarDocumento(valor).slice(0, 11);
+    if (cpf.length !== 11) return cpf;
+    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+}
+
+function formatarCampoCpf(input) {
+    const cpf = normalizarDocumento(input.value).slice(0, 11);
+    let formatado = cpf;
+
+    if (cpf.length > 3) formatado = `${cpf.slice(0, 3)}.${cpf.slice(3)}`;
+    if (cpf.length > 6) formatado = `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6)}`;
+    if (cpf.length > 9) formatado = `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;
+
+    input.value = formatado;
+}
+
+async function lerPlanilhaColaboradores(arquivo) {
+    const dadosArquivo = await arquivo.arrayBuffer();
+    const workbook = XLSX.read(dadosArquivo, { type: "array" });
+
+    if (!workbook.SheetNames.length) {
+        throw new Error("A planilha de colaboradores não possui nenhuma aba.");
+    }
+
+    const primeiraAba = workbook.Sheets[workbook.SheetNames[0]];
+    const linhas = XLSX.utils.sheet_to_json(primeiraAba, {
+        header: 1,
+        defval: "",
+        raw: false
+    });
+
+    if (linhas.length < 2) {
+        throw new Error("A planilha deve ter uma linha de cabeçalho e pelo menos um colaborador.");
+    }
+
+    return linhas;
+}
+
+function analisarPlanilhaColaboradores(linhas) {
+    const porCpf = new Map();
+    const invalidos = [];
+    const conflitos = [];
+    let duplicados = 0;
+
+    linhas.slice(1).forEach((linha, indice) => {
+        const numeroLinha = indice + 2;
+        const nome = String(linha[0] || "").trim().replace(/\s+/g, " ");
+        const cpf = normalizarDocumento(linha[1]);
+        const linhaVazia = !nome && !cpf;
+
+        if (linhaVazia) return;
+
+        if (!nome) {
+            invalidos.push(`linha ${numeroLinha}: nome não informado`);
+            return;
+        }
+
+        if (!validarCpf(cpf)) {
+            invalidos.push(`linha ${numeroLinha}: CPF inválido para ${nome}`);
+            return;
+        }
+
+        const anterior = porCpf.get(cpf);
+        if (anterior) {
+            duplicados++;
+            if (normalizarTexto(anterior.nome) !== normalizarTexto(nome)) {
+                conflitos.push(
+                    `CPF ${formatarCpf(cpf)} aparece para “${anterior.nome}” e “${nome}”`
+                );
+            }
+            return;
+        }
+
+        porCpf.set(cpf, { nome, cpf });
+    });
+
+    if (conflitos.length) {
+        throw new Error(
+            `Foram encontrados CPFs associados a nomes diferentes:\n${conflitos.slice(0, 5).join("\n")}`
+        );
+    }
+
+    return {
+        colaboradores: Array.from(porCpf.values()),
+        invalidos,
+        duplicados
+    };
+}
+
+function definirStatusColaboradores(mensagem, tipo = "info") {
+    const status = document.getElementById("importacaoColaboradoresStatus");
+    if (!status) return;
+
+    status.style.display = "block";
+    status.textContent = mensagem;
+    status.style.background = tipo === "erro" ? "#f8d7da" :
+        tipo === "ok" ? "#d4edda" : "#eef5fc";
+    status.style.color = tipo === "erro" ? "#842029" :
+        tipo === "ok" ? "#0f5132" : "#0b2f55";
+}
+
+function definirResultadoColaborador(tipo, mensagem) {
+    const resultado = document.getElementById("resultadoColaborador");
+    if (!resultado) return;
+
+    resultado.classList.remove("is-ok", "is-error", "is-warning");
+    if (tipo) resultado.classList.add(`is-${tipo}`);
+    resultado.textContent = mensagem || "";
+}
+
+async function obterEventoColaboradores(criarSeNaoExistir = false) {
+    const resBusca = await fetch(
+        `${SUPABASE_URL}/rest/v1/eventos?nome=eq.${encodeURIComponent(NOME_EVENTO_COLABORADORES)}` +
+        `&select=id,nome&order=criado_em.asc&limit=1`,
+        { headers: headers() }
+    );
+
+    if (!resBusca.ok) throw new Error(await resBusca.text());
+
+    const encontrados = await resBusca.json();
+    if (encontrados.length || !criarSeNaoExistir) return encontrados[0] || null;
+
+    const resCriacao = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+        method: "POST",
+        headers: headers({
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }),
+        body: JSON.stringify({
+            nome: NOME_EVENTO_COLABORADORES,
+            data_evento: null
+        })
+    });
+
+    if (!resCriacao.ok) throw new Error(await resCriacao.text());
+    const criado = await resCriacao.json();
+    return criado[0];
+}
+
+async function buscarTodosEmLotes(caminho, tamanhoLote = 1000) {
+    const registros = [];
+    let deslocamento = 0;
+
+    while (true) {
+        const separador = caminho.includes("?") ? "&" : "?";
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/${caminho}${separador}limit=${tamanhoLote}&offset=${deslocamento}`,
+            { headers: headers() }
+        );
+
+        if (!res.ok) throw new Error(await res.text());
+        const lote = await res.json();
+        registros.push(...lote);
+
+        if (lote.length < tamanhoLote) break;
+        deslocamento += tamanhoLote;
+    }
+
+    return registros;
+}
+
+async function buscarDadosColaboradores() {
+    const evento = await obterEventoColaboradores(false);
+    if (!evento) return { evento: null, colaboradores: [], movimentacoes: [] };
+
+    const eventoId = encodeURIComponent(evento.id);
+    const [colaboradores, movimentacoes] = await Promise.all([
+        buscarTodosEmLotes(
+            `inscritos?evento_id=eq.${eventoId}&select=id,nome,numero_inscricao,documento&order=nome.asc`
+        ),
+        buscarTodosEmLotes(
+            `movimentacoes_presenca?evento_id=eq.${eventoId}` +
+            `&select=id,inscrito_id,numero_inscricao,tipo_movimento,horario,inscritos(nome)` +
+            `&order=horario.asc`
+        )
+    ]);
+
+    return { evento, colaboradores, movimentacoes };
+}
+
+function resetarPainelColaboradores() {
+    ["colabResumoImportados", "colabResumoEntradas", "colabResumoSaidas", "colabResumoDentro"]
+        .forEach(id => {
+            const elemento = document.getElementById(id);
+            if (elemento) elemento.textContent = "0";
+        });
+
+    const tbody = document.getElementById("listaMovimentacoesColaboradores");
+    if (tbody) tbody.innerHTML = "";
+}
+
+async function carregarPainelColaboradores() {
+    try {
+        const { colaboradores, movimentacoes } = await buscarDadosColaboradores();
+        const comEntrada = new Set();
+        const comSaida = new Set();
+        const ultimoMovimento = new Map();
+
+        movimentacoes.forEach(item => {
+            const chave = String(item.inscrito_id || item.numero_inscricao || "");
+            if (item.tipo_movimento === "entrada") comEntrada.add(chave);
+            if (item.tipo_movimento === "saida") comSaida.add(chave);
+            ultimoMovimento.set(chave, item.tipo_movimento);
+        });
+
+        const dentro = Array.from(ultimoMovimento.values())
+            .filter(tipo => tipo === "entrada" || tipo === "retorno").length;
+
+        document.getElementById("colabResumoImportados").textContent = colaboradores.length;
+        document.getElementById("colabResumoEntradas").textContent = comEntrada.size;
+        document.getElementById("colabResumoSaidas").textContent = comSaida.size;
+        document.getElementById("colabResumoDentro").textContent = dentro;
+
+        const tbody = document.getElementById("listaMovimentacoesColaboradores");
+        tbody.innerHTML = "";
+
+        const recentes = movimentacoes.slice(-30).reverse();
+        if (!recentes.length) {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+            td.colSpan = 4;
+            td.className = "muted";
+            td.textContent = "Nenhuma entrada ou saída registrada.";
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        recentes.forEach(item => {
+            const tr = document.createElement("tr");
+            const valores = [
+                item.inscritos?.nome || "",
+                formatarCpf(item.numero_inscricao || ""),
+                item.tipo_movimento === "saida" ? "Saída" : "Entrada",
+                item.horario ? new Date(item.horario).toLocaleString("pt-BR") : ""
+            ];
+
+            valores.forEach(valor => {
+                const td = document.createElement("td");
+                td.textContent = valor;
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    } catch (erro) {
+        console.error("Erro ao carregar colaboradores:", erro);
+        resetarPainelColaboradores();
+        definirResultadoColaborador("error", "Não foi possível carregar os dados dos colaboradores.");
+    }
+}
+
+async function importarColaboradoresExcel() {
+    const input = document.getElementById("excelColaboradoresInput");
+    const botao = document.getElementById("btnImportarColaboradores");
+    const arquivo = input.files[0];
+
+    if (!arquivo) {
+        alert("Selecione a planilha de colaboradores.");
+        return;
+    }
+
+    botao.disabled = true;
+    definirStatusColaboradores("Lendo e validando a planilha...");
+
+    try {
+        const linhas = await lerPlanilhaColaboradores(arquivo);
+        const analise = analisarPlanilhaColaboradores(linhas);
+
+        if (!analise.colaboradores.length) {
+            throw new Error("Nenhum colaborador com nome e CPF válido foi encontrado.");
+        }
+
+        const exemplosInvalidos = analise.invalidos.slice(0, 5).join("\n");
+        const confirmar = confirm(
+            `Prévia da importação:\n\n` +
+            `${analise.colaboradores.length} colaborador(es) válido(s)\n` +
+            `${analise.duplicados} CPF(s) duplicado(s) ignorado(s)\n` +
+            `${analise.invalidos.length} linha(s) inválida(s) ignorada(s)` +
+            (exemplosInvalidos ? `\n\nExemplos de linhas ignoradas:\n${exemplosInvalidos}` : "") +
+            `\n\nDeseja importar esses colaboradores?`
+        );
+
+        if (!confirmar) {
+            definirStatusColaboradores("Importação cancelada. Nenhum dado foi gravado.");
+            return;
+        }
+
+        definirStatusColaboradores("Salvando os colaboradores...");
+        const evento = await obterEventoColaboradores(true);
+        const payload = analise.colaboradores.map(colaborador => ({
+            evento_id: evento.id,
+            nome: colaborador.nome,
+            numero_inscricao: colaborador.cpf,
+            documento: colaborador.cpf
+        }));
+
+        await postarEmLotes("inscritos", payload, "evento_id,numero_inscricao");
+
+        input.value = "";
+        definirStatusColaboradores(
+            `Importação concluída com sucesso!\n` +
+            `${analise.colaboradores.length} colaborador(es) criado(s)/atualizado(s).\n` +
+            `${analise.invalidos.length} linha(s) inválida(s) ignorada(s).`,
+            "ok"
+        );
+        await carregarPainelColaboradores();
+        atualizarResumoGeralAdmin();
+        document.getElementById("cpfColaboradorInput")?.focus();
+    } catch (erro) {
+        console.error("Erro na importação de colaboradores:", erro);
+        definirStatusColaboradores(`Erro ao importar: ${erro.message}`, "erro");
+    } finally {
+        botao.disabled = false;
+    }
+}
+
+async function registrarPresencaColaborador(event) {
+    event?.preventDefault();
+    if (colaboradorProcessando) return;
+
+    const input = document.getElementById("cpfColaboradorInput");
+    const botao = document.getElementById("btnValidarColaborador");
+    const cpf = normalizarDocumento(input.value);
+
+    if (!validarCpf(cpf)) {
+        definirResultadoColaborador("error", "Digite um CPF válido com 11 dígitos.");
+        input.focus();
+        return;
+    }
+
+    colaboradorProcessando = true;
+    botao.disabled = true;
+    definirResultadoColaborador("warning", "Validando CPF...");
+
+    try {
+        const evento = await obterEventoColaboradores(false);
+        if (!evento) {
+            throw new Error("Importe primeiro a planilha de colaboradores.");
+        }
+
+        const resColaborador = await fetch(
+            `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${encodeURIComponent(evento.id)}` +
+            `&numero_inscricao=eq.${encodeURIComponent(cpf)}` +
+            `&select=id,nome,numero_inscricao&limit=1`,
+            { headers: headers() }
+        );
+
+        if (!resColaborador.ok) throw new Error(await resColaborador.text());
+        const colaboradores = await resColaborador.json();
+
+        if (!colaboradores.length) {
+            definirResultadoColaborador(
+                "error",
+                `CPF ${formatarCpf(cpf)} não encontrado na relação importada.`
+            );
+            return;
+        }
+
+        const colaborador = colaboradores[0];
+        const resUltimo = await fetch(
+            `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${encodeURIComponent(evento.id)}` +
+            `&inscrito_id=eq.${encodeURIComponent(colaborador.id)}` +
+            `&select=tipo_movimento,horario&order=horario.desc&limit=1`,
+            { headers: headers() }
+        );
+
+        if (!resUltimo.ok) throw new Error(await resUltimo.text());
+        const ultimo = (await resUltimo.json())[0] || null;
+
+        if (ultimo?.horario && Date.now() - new Date(ultimo.horario).getTime() < 15000) {
+            definirResultadoColaborador(
+                "warning",
+                `${colaborador.nome} já foi validado há poucos segundos. Aguarde antes de tentar novamente.`
+            );
+            return;
+        }
+
+        if (ultimo?.tipo_movimento === "saida") {
+            definirResultadoColaborador(
+                "warning",
+                `${colaborador.nome} já possui entrada e saída registradas. Nenhum novo registro foi criado.`
+            );
+            return;
+        }
+
+        const tipo = ultimo ? "saida" : "entrada";
+        const resRegistro = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca`, {
+            method: "POST",
+            headers: headers({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+                evento_id: evento.id,
+                inscrito_id: colaborador.id,
+                numero_inscricao: colaborador.numero_inscricao,
+                tipo_movimento: tipo
+            })
+        });
+
+        if (!resRegistro.ok) throw new Error(await resRegistro.text());
+
+        input.value = "";
+        definirResultadoColaborador(
+            "ok",
+            `${tipo === "entrada" ? "Entrada" : "Saída"} registrada: ${colaborador.nome} — ` +
+            new Date().toLocaleString("pt-BR")
+        );
+        tocarSom("ok");
+        await carregarPainelColaboradores();
+    } catch (erro) {
+        console.error("Erro ao validar colaborador:", erro);
+        definirResultadoColaborador("error", `Erro ao registrar: ${erro.message}`);
+        tocarSom("erro");
+    } finally {
+        colaboradorProcessando = false;
+        botao.disabled = false;
+        input.focus();
+    }
+}
+
+async function exportarColaboradoresExcel() {
+    try {
+        const { colaboradores, movimentacoes } = await buscarDadosColaboradores();
+
+        if (!colaboradores.length) {
+            alert("Nenhum colaborador importado para exportar.");
+            return;
+        }
+
+        const registrosPorInscrito = new Map();
+        movimentacoes.forEach(item => {
+            const chave = String(item.inscrito_id || "");
+            if (!registrosPorInscrito.has(chave)) {
+                registrosPorInscrito.set(chave, { entrada: "", saida: "" });
+            }
+
+            const registro = registrosPorInscrito.get(chave);
+            const horario = item.horario ? new Date(item.horario).toLocaleString("pt-BR") : "";
+            if (item.tipo_movimento === "entrada" && !registro.entrada) registro.entrada = horario;
+            if (item.tipo_movimento === "saida" && !registro.saida) registro.saida = horario;
+        });
+
+        const linhas = colaboradores.map(colaborador => {
+            const registro = registrosPorInscrito.get(String(colaborador.id)) || {};
+            return {
+                Nome: colaborador.nome || "",
+                CPF: formatarCpf(colaborador.numero_inscricao || colaborador.documento || ""),
+                Entrada: registro.entrada || "",
+                "Saída": registro.saida || ""
+            };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(linhas);
+        ws["!cols"] = [
+            { wch: 40 },
+            { wch: 18 },
+            { wch: 23 },
+            { wch: 23 }
+        ];
+        ws["!autofilter"] = { ref: `A1:D${linhas.length + 1}` };
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Colaboradores");
+        XLSX.writeFile(wb, "presenca_colaboradores.xlsx");
+    } catch (erro) {
+        console.error("Erro ao exportar colaboradores:", erro);
+        alert(`Erro ao exportar colaboradores:\n${erro.message}`);
+    }
+}
+
+async function limparDadosColaboradores() {
+    const evento = await obterEventoColaboradores(false).catch(() => null);
+    if (!evento) {
+        alert("Não há dados de colaboradores para limpar.");
+        return;
+    }
+
+    const confirmar = confirm(
+        "Tem certeza que deseja apagar TODOS os colaboradores e seus registros de entrada e saída?"
+    );
+    if (!confirmar) return;
+
+    try {
+        for (const tabela of ["movimentacoes_presenca", "presencas", "inscritos"]) {
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/${tabela}?evento_id=eq.${encodeURIComponent(evento.id)}`,
+                { method: "DELETE", headers: headers() }
+            );
+            if (!res.ok) throw new Error(await res.text());
+        }
+
+        const resEvento = await fetch(
+            `${SUPABASE_URL}/rest/v1/eventos?id=eq.${encodeURIComponent(evento.id)}`,
+            { method: "DELETE", headers: headers() }
+        );
+        if (!resEvento.ok) throw new Error(await resEvento.text());
+
+        resetarPainelColaboradores();
+        definirResultadoColaborador("", "");
+        definirStatusColaboradores("Todos os dados de colaboradores foram apagados.", "ok");
+        atualizarResumoGeralAdmin();
+        alert("Dados dos colaboradores apagados com sucesso.");
+    } catch (erro) {
+        console.error("Erro ao limpar colaboradores:", erro);
+        alert(`Erro ao limpar colaboradores:\n${erro.message}`);
+    }
 }
 
 function definirStatusImportacao(mensagem, tipo = "info") {
@@ -2919,6 +3538,8 @@ async function resetCompleto() {
     EVENTOS_DISPONIVEIS = [];
     preencherSeletoresAdmin();
     limparTelaEvento();
+    resetarPainelColaboradores();
+    definirResultadoColaborador("", "");
     atualizarResumoGeralAdmin();
 }
 
@@ -2935,6 +3556,11 @@ setInterval(() => {
         atualizarDashboard();
         carregarPresencas();
         carregarMovimentacoes();
+    }
+
+    if (document.getElementById("adminSection-colaboradores")?.classList.contains("is-active") &&
+        document.body.classList.contains("admin-open")) {
+        carregarPainelColaboradores();
     }
 }, 20000);
 </script>
