@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-/* Interface 2026-08-13.2 — senha em todas as ações da Zona de Risco */
+/* Interface 2026-08-15.1 — limpeza de movimentações preservando os inscritos */
 :root {
     --navy-950: #071a2e;
     --navy-900: #0a2744;
@@ -771,7 +771,7 @@ tbody tr:hover { background: var(--blue-50); }
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-08-13.2</strong>
+        <strong>Versão 2026-08-15.1</strong>
         Interface mobile · participantes e colaboradores
       </div>
     </aside>
@@ -953,10 +953,10 @@ tbody tr:hover { background: var(--blue-50); }
         </div>
         <div class="admin-grid">
           <article class="admin-card danger-card admin-action-card">
-            <h4>Limpar uma atividade</h4>
-            <p class="muted">Escolha abaixo a atividade cujos inscritos, presenças e movimentações serão apagados.</p>
-            <div class="field-group mt-14"><label for="adminRiscoEventoSelect">Atividade a limpar</label><select id="adminRiscoEventoSelect"><option value="">Selecione uma atividade</option></select></div>
-            <div class="button-row"><button type="button" class="button-warning" onclick="limparEventoAtual()">Limpar atividade selecionada</button></div>
+            <h4>Limpar movimentações de uma atividade</h4>
+            <p class="muted">Apaga entradas, saídas, retornos e presenças registradas da atividade selecionada, mas preserva a atividade e todos os participantes cadastrados.</p>
+            <div class="field-group mt-14"><label for="adminRiscoEventoSelect">Atividade cujas movimentações serão limpas</label><select id="adminRiscoEventoSelect"><option value="">Selecione uma atividade</option></select></div>
+            <div class="button-row"><button type="button" class="button-warning" onclick="limparEventoAtual()">Limpar movimentações da atividade</button></div>
           </article>
           <article class="admin-card danger-card admin-action-card">
             <h4>Limpar colaboradores</h4>
@@ -3459,9 +3459,13 @@ async function limparEventoAtual() {
         return;
     }
 
-    if (!autenticarZonaRisco(`limpar a atividade “${atividade.nome}”`)) return;
+    if (!autenticarZonaRisco(`limpar as movimentações da atividade “${atividade.nome}”`)) return;
 
-    const confirmar = confirm(`Tem certeza que deseja limpar TODOS os dados da atividade "${atividade.nome}"?`);
+    const confirmar = confirm(
+        `Tem certeza que deseja apagar todas as entradas, saídas, retornos e presenças ` +
+        `registradas da atividade "${atividade.nome}"?\n\n` +
+        `A atividade e os participantes cadastrados serão preservados.`
+    );
     if (!confirmar) return;
 
     const r0 = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${atividade.id}`, {
@@ -3474,13 +3478,11 @@ async function limparEventoAtual() {
         headers: headers()
     });
 
-    const r2 = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${atividade.id}`, {
-        method: "DELETE",
-        headers: headers()
-    });
-
-    if (r0.ok && r1.ok && r2.ok) {
-        alert(`Atividade "${atividade.nome}" limpa com sucesso.`);
+    if (r0.ok && r1.ok) {
+        alert(
+            `Movimentações da atividade "${atividade.nome}" apagadas com sucesso.\n\n` +
+            `A atividade e todos os participantes cadastrados foram preservados.`
+        );
         if (String(EVENTO_ID) === String(atividade.id)) {
             carregarPresencas();
             carregarMovimentacoes();
@@ -3490,8 +3492,7 @@ async function limparEventoAtual() {
     } else {
         const erro0 = !r0.ok ? await r0.text() : "";
         const erro1 = !r1.ok ? await r1.text() : "";
-        const erro2 = !r2.ok ? await r2.text() : "";
-        alert("Erro ao limpar evento:\n" + erro0 + "\n" + erro1 + "\n" + erro2);
+        alert("Erro ao limpar as movimentações da atividade:\n" + erro0 + "\n" + erro1);
     }
 }
 
