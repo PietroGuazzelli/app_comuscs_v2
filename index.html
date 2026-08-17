@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-/* Interface 2026-08-15.1 — limpeza de movimentações preservando os inscritos */
+/* Interface 2026-08-15.2 — importação incremental do Even3 */
 :root {
     --navy-950: #071a2e;
     --navy-900: #0a2744;
@@ -771,7 +771,7 @@ tbody tr:hover { background: var(--blue-50); }
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-08-15.1</strong>
+        <strong>Versão 2026-08-15.2</strong>
         Interface mobile · participantes e colaboradores
       </div>
     </aside>
@@ -814,7 +814,7 @@ tbody tr:hover { background: var(--blue-50); }
           <article class="admin-card admin-card-full">
             <h4>Importação completa do Even3</h4>
             <p class="muted">O aplicativo cruza o ID interno com o Número de inscrição e usa esse número na leitura do QR Code.</p>
-            <div class="admin-callout">Selecione os dois arquivos antes de iniciar. Os dados existentes serão atualizados sem duplicar participantes.</div>
+            <div class="admin-callout">Selecione os dois arquivos antes de iniciar. O aplicativo compara os dados e grava somente atividades ou participantes novos e campos realmente alterados.</div>
             <div class="field-group mt-18">
               <label for="excelInscritosEven3Input">1. Lista Inscritos — atividades</label>
               <input type="file" id="excelInscritosEven3Input" accept=".xlsx,.xls">
@@ -2565,6 +2565,164 @@ async function postarEmLotes(tabela, payload, conflito, tamanhoLote = 500) {
     }
 }
 
+async function inserirNovosEmLotes(tabela, payload, tamanhoLote = 500) {
+    for (let inicio = 0; inicio < payload.length; inicio += tamanhoLote) {
+        const lote = payload.slice(inicio, inicio + tamanhoLote);
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}`, {
+            method: "POST",
+            headers: headers({
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            }),
+            body: JSON.stringify(lote)
+        });
+
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+    }
+}
+
+function normalizarComparacao(campo, valor) {
+    if (campo === "documento") return normalizarDocumento(valor);
+    if (campo === "email" || campo === "email_institucional") {
+        return String(valor || "").trim().toLowerCase();
+    }
+    if (campo === "nome") {
+        return String(valor || "").trim().replace(/\s+/g, " ");
+    }
+    if (campo === "ra_matricula") return normalizarTexto(valor);
+    return String(valor ?? "").trim();
+}
+
+function obterAlteracoesParticipante(existente, participante) {
+    const campos = [
+        "nome",
+        "numero_inscricao",
+        "even3_participante_id",
+        "email",
+        "documento",
+        "inscricao_evento",
+        "email_institucional",
+        "ra_matricula"
+    ];
+    const alteracoes = {};
+
+    campos.forEach(campo => {
+        if (normalizarComparacao(campo, existente[campo]) !==
+            normalizarComparacao(campo, participante[campo])) {
+            alteracoes[campo] = participante[campo];
+        }
+    });
+
+    return alteracoes;
+}
+
+async function sincronizarAtividadesEven3(atividades) {
+    const eventosExistentes = await buscarTodosEmLotes(
+        "eventos?select=id,nome,even3_atividade_id"
+    );
+    const porIdEven3 = new Map();
+
+    eventosExistentes.forEach(evento => {
+        if (!evento.even3_atividade_id) return;
+        const chave = String(evento.even3_atividade_id);
+        if (porIdEven3.has(chave)) {
+            throw new Error(
+                `Existem duas atividades no banco vinculadas ao ID Even3 ${chave}. ` +
+                `A importação foi interrompida para evitar duplicidades.`
+            );
+        }
+        porIdEven3.set(chave, evento);
+    });
+
+    const novas = [];
+    let atualizadas = 0;
+    let inalteradas = 0;
+
+    for (const atividade of atividades) {
+        const chave = String(atividade.even3_atividade_id);
+        const existentePorId = porIdEven3.get(chave);
+
+        if (existentePorId) {
+            if (String(existentePorId.nome || "").trim() === String(atividade.nome || "").trim()) {
+                inalteradas++;
+                continue;
+            }
+
+            const resAtualizacao = await fetch(
+                `${SUPABASE_URL}/rest/v1/eventos?id=eq.${encodeURIComponent(existentePorId.id)}`,
+                {
+                    method: "PATCH",
+                    headers: headers({
+                        "Content-Type": "application/json",
+                        "Prefer": "return=minimal"
+                    }),
+                    body: JSON.stringify({ nome: atividade.nome })
+                }
+            );
+
+            if (!resAtualizacao.ok) throw new Error(await resAtualizacao.text());
+            atualizadas++;
+            continue;
+        }
+
+        const candidatosPorNome = eventosExistentes.filter(evento =>
+            !evento.even3_atividade_id &&
+            normalizarTexto(evento.nome) === normalizarTexto(atividade.nome)
+        );
+
+        if (candidatosPorNome.length > 1) {
+            throw new Error(
+                `Há mais de uma atividade chamada “${atividade.nome}” sem vínculo com o Even3. ` +
+                `A importação foi interrompida para evitar duplicidade.`
+            );
+        }
+
+        if (candidatosPorNome.length === 1) {
+            inalteradas++;
+            continue;
+        }
+
+        novas.push(atividade);
+    }
+
+    if (novas.length) await inserirNovosEmLotes("eventos", novas);
+
+    const eventosAposSincronizacao = novas.length
+        ? await buscarTodosEmLotes("eventos?select=id,nome,even3_atividade_id")
+        : eventosExistentes;
+    const eventoPorIdEven3 = new Map();
+
+    atividades.forEach(atividade => {
+        const chave = String(atividade.even3_atividade_id);
+        const porId = eventosAposSincronizacao.find(evento =>
+            String(evento.even3_atividade_id || "") === chave
+        );
+        const candidatosPorNome = porId ? [] : eventosAposSincronizacao.filter(evento =>
+            !evento.even3_atividade_id &&
+            normalizarTexto(evento.nome) === normalizarTexto(atividade.nome)
+        );
+        const eventoResolvido = porId ||
+            (candidatosPorNome.length === 1 ? candidatosPorNome[0] : null);
+
+        if (!eventoResolvido) {
+            throw new Error(
+                `A atividade “${atividade.nome}” não pôde ser localizada após a comparação.`
+            );
+        }
+
+        eventoPorIdEven3.set(chave, eventoResolvido.id);
+    });
+
+    return {
+        criadas: novas.length,
+        atualizadas,
+        inalteradas,
+        eventoPorIdEven3
+    };
+}
+
 async function atualizarReferenciasNumeroInscricao(inscritoId, numeroInscricao) {
     for (const tabela of ["presencas", "movimentacoes_presenca"]) {
         const res = await fetch(
@@ -2588,17 +2746,11 @@ async function atualizarReferenciasNumeroInscricao(inscritoId, numeroInscricao) 
 async function salvarParticipantesEven3(participantes) {
     const idsEventos = Array.from(new Set(participantes.map(p => p.evento_id)));
     const filtroEventos = `(${idsEventos.join(",")})`;
-    const resExistentes = await fetch(
-        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=in.${encodeURIComponent(filtroEventos)}` +
-        `&select=id,evento_id,numero_inscricao,even3_participante_id`,
-        { headers: headers() }
+    const existentes = await buscarTodosEmLotes(
+        `inscritos?evento_id=in.${encodeURIComponent(filtroEventos)}` +
+        `&select=id,evento_id,nome,numero_inscricao,even3_participante_id,email,documento,` +
+        `inscricao_evento,email_institucional,ra_matricula`
     );
-
-    if (!resExistentes.ok) {
-        throw new Error(await resExistentes.text());
-    }
-
-    const existentes = await resExistentes.json();
     const porIdEven3 = new Map();
     const porNumero = new Map();
 
@@ -2614,6 +2766,7 @@ async function salvarParticipantesEven3(participantes) {
 
     const novos = [];
     let atualizados = 0;
+    let inalterados = 0;
 
     for (const participante of participantes) {
         const chaveId = `${participante.evento_id}-${participante.even3_participante_id}`;
@@ -2646,7 +2799,18 @@ async function salvarParticipantesEven3(participantes) {
             continue;
         }
 
-        if (String(existente.numero_inscricao) !== participante.numero_inscricao) {
+        const alteracoes = obterAlteracoesParticipante(existente, participante);
+        const numeroAlterado = Object.prototype.hasOwnProperty.call(
+            alteracoes,
+            "numero_inscricao"
+        );
+
+        if (!Object.keys(alteracoes).length) {
+            inalterados++;
+            continue;
+        }
+
+        if (numeroAlterado) {
             await atualizarReferenciasNumeroInscricao(
                 existente.id,
                 participante.numero_inscricao
@@ -2661,7 +2825,7 @@ async function salvarParticipantesEven3(participantes) {
                     "Content-Type": "application/json",
                     "Prefer": "return=minimal"
                 }),
-                body: JSON.stringify(participante)
+                body: JSON.stringify(alteracoes)
             }
         );
 
@@ -2673,14 +2837,10 @@ async function salvarParticipantesEven3(participantes) {
     }
 
     if (novos.length) {
-        await postarEmLotes(
-            "inscritos",
-            novos,
-            "evento_id,numero_inscricao"
-        );
+        await inserirNovosEmLotes("inscritos", novos);
     }
 
-    return { criados: novos.length, atualizados };
+    return { criados: novos.length, atualizados, inalterados };
 }
 
 async function importarExcelEven3() {
@@ -2733,7 +2893,8 @@ async function importarExcelEven3() {
             `${analise.linhasParticipantesIgnoradas} linha(s) inválida(s) da ListaParticipante ignorada(s)\n` +
             `${analise.duplicadosIgnorados} duplicidade(s) ignorada(s)\n\n` +
             `${resumoAtividades}\n\n` +
-            `Deseja criar/atualizar esses dados no aplicativo?`
+            `O aplicativo comparará esses dados com o banco e gravará somente as diferenças.\n\n` +
+            `Deseja continuar?`
         );
 
         if (!confirmar) {
@@ -2741,80 +2902,11 @@ async function importarExcelEven3() {
             return;
         }
 
-        definirStatusImportacao("Criando e atualizando as atividades...");
+        definirStatusImportacao("Comparando as atividades com os dados já cadastrados...");
+        const resultadoAtividades = await sincronizarAtividadesEven3(analise.atividades);
+        const eventoPorIdEven3 = resultadoAtividades.eventoPorIdEven3;
 
-        const resEventosExistentes = await fetch(
-            `${SUPABASE_URL}/rest/v1/eventos?select=id,nome,even3_atividade_id`,
-            { headers: headers() }
-        );
-
-        if (!resEventosExistentes.ok) {
-            throw new Error(await resEventosExistentes.text());
-        }
-
-        const eventosExistentes = await resEventosExistentes.json();
-        const atividadesJaVinculadas = new Set(
-            eventosExistentes
-                .filter(evento => evento.even3_atividade_id)
-                .map(evento => String(evento.even3_atividade_id))
-        );
-
-        for (const atividade of analise.atividades) {
-            if (atividadesJaVinculadas.has(atividade.even3_atividade_id)) continue;
-
-            const candidatos = eventosExistentes.filter(evento =>
-                !evento.even3_atividade_id &&
-                normalizarTexto(evento.nome) === normalizarTexto(atividade.nome)
-            );
-
-            if (candidatos.length === 1) {
-                const resVinculo = await fetch(
-                    `${SUPABASE_URL}/rest/v1/eventos?id=eq.${encodeURIComponent(candidatos[0].id)}`,
-                    {
-                        method: "PATCH",
-                        headers: headers({ "Content-Type": "application/json" }),
-                        body: JSON.stringify({
-                            nome: atividade.nome,
-                            even3_atividade_id: atividade.even3_atividade_id
-                        })
-                    }
-                );
-
-                if (!resVinculo.ok) {
-                    throw new Error(await resVinculo.text());
-                }
-            }
-        }
-
-        await postarEmLotes(
-            "eventos",
-            analise.atividades,
-            "even3_atividade_id"
-        );
-
-        const filtroIds = `(${analise.atividades
-            .map(atividade => atividade.even3_atividade_id)
-            .join(",")})`;
-        const resEventos = await fetch(
-            `${SUPABASE_URL}/rest/v1/eventos?even3_atividade_id=in.${encodeURIComponent(filtroIds)}` +
-            `&select=id,nome,even3_atividade_id`,
-            { headers: headers() }
-        );
-
-        if (!resEventos.ok) {
-            throw new Error(await resEventos.text());
-        }
-
-        const eventosSalvos = await resEventos.json();
-        const eventoPorIdEven3 = new Map(
-            eventosSalvos.map(evento => [String(evento.even3_atividade_id), evento.id])
-        );
-
-        if (eventoPorIdEven3.size !== analise.atividades.length) {
-            throw new Error("Nem todas as atividades puderam ser recuperadas após a gravação.");
-        }
-
-        definirStatusImportacao("Importando os participantes de cada atividade...");
+        definirStatusImportacao("Comparando os participantes com os dados já cadastrados...");
         const participantes = analise.registros.map(registro => ({
             evento_id: eventoPorIdEven3.get(registro.atividadeId),
             nome: registro.nome,
@@ -2831,9 +2923,12 @@ async function importarExcelEven3() {
 
         definirStatusImportacao(
             `Importação concluída com sucesso!\n` +
-            `${analise.atividades.length} atividade(s) criada(s)/atualizada(s).\n` +
-            `${resultadoGravacao.criados} inscrição(ões) criada(s).\n` +
-            `${resultadoGravacao.atualizados} inscrição(ões) atualizada(s).\n` +
+            `${resultadoAtividades.criadas} atividade(s) nova(s) criada(s).\n` +
+            `${resultadoAtividades.atualizadas} atividade(s) com diferença atualizada(s).\n` +
+            `${resultadoAtividades.inalteradas} atividade(s) já cadastrada(s), sem nova gravação.\n` +
+            `${resultadoGravacao.criados} inscrição(ões) nova(s) criada(s).\n` +
+            `${resultadoGravacao.atualizados} inscrição(ões) com diferença atualizada(s).\n` +
+            `${resultadoGravacao.inalterados} inscrição(ões) já cadastrada(s), sem nova gravação.\n` +
             `${analise.participantesSemCorrespondencia.length + analise.participantesSemNumero.length} ` +
             `vínculo(s) sem Número de inscrição ignorado(s).\n` +
             `${analise.participantesSemEmailInstitucional} participante(s) sem e-mail institucional.\n` +
