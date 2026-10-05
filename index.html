@@ -771,7 +771,7 @@ tbody tr:hover { background: var(--blue-50); }
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-08-15.2</strong>
+        <strong>Versão 2026-10-05.1</strong>
         Interface mobile · participantes e colaboradores
       </div>
     </aside>
@@ -921,7 +921,7 @@ tbody tr:hover { background: var(--blue-50); }
         <div class="admin-section-heading">
           <p class="eyebrow">Relatórios</p>
           <h2>Exportar dados</h2>
-          <p>Exporte uma atividade específica ou reúna as presenças de todas as atividades em uma única planilha.</p>
+          <p>Exporte uma atividade específica ou reúna presenças e movimentações de todas as atividades em uma única planilha.</p>
         </div>
         <div class="admin-grid">
           <article class="admin-card admin-card-full">
@@ -939,8 +939,13 @@ tbody tr:hover { background: var(--blue-50); }
           </article>
           <article class="admin-card admin-action-card">
             <h4>Movimentações em Excel</h4>
-            <p class="muted">Entradas, saídas e retornos registrados em ordem cronológica.</p>
+            <p class="muted">Entradas, saídas e retornos da atividade selecionada, em ordem cronológica.</p>
             <div class="button-row"><button type="button" onclick="exportarMovimentacoesExcel()">Exportar movimentações</button></div>
+          </article>
+          <article class="admin-card admin-action-card">
+            <h4>Todas as movimentações em Excel</h4>
+            <p class="muted">Reúne entradas, saídas e retornos de todas as atividades em uma única planilha, identificando cada atividade.</p>
+            <div class="button-row"><button type="button" class="button-primary" onclick="exportarTodasMovimentacoesExcel()">Exportar todas as movimentações</button></div>
           </article>
         </div>
       </section>
@@ -3544,6 +3549,115 @@ async function exportarMovimentacoesExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Movimentacoes");
     XLSX.writeFile(wb, `movimentacoes_${atividade.nome || "atividade"}.xlsx`);
+}
+
+async function buscarTodasMovimentacoes() {
+    const tamanhoLote = 1000;
+    const registros = [];
+    let deslocamento = 0;
+
+    while (true) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?` +
+            `select=evento_id,numero_inscricao,tipo_movimento,horario,inscritos(nome,numero_inscricao,documento,email_institucional,ra_matricula)` +
+            `&order=horario.asc&limit=${tamanhoLote}&offset=${deslocamento}`,
+            { headers: headers() }
+        );
+
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+
+        const lote = await res.json();
+        registros.push(...lote);
+
+        if (lote.length < tamanhoLote) break;
+        deslocamento += tamanhoLote;
+    }
+
+    return registros;
+}
+
+async function exportarTodasMovimentacoesExcel() {
+    try {
+        const [dados, resEventos] = await Promise.all([
+            buscarTodasMovimentacoes(),
+            fetch(
+                `${SUPABASE_URL}/rest/v1/eventos?select=id,nome&order=nome.asc`,
+                { headers: headers() }
+            )
+        ]);
+
+        if (!resEventos.ok) {
+            throw new Error(await resEventos.text());
+        }
+
+        const eventos = await resEventos.json();
+
+        const eventosAtividades = eventos.filter(
+            evento => String(evento.nome || "") !== NOME_EVENTO_COLABORADORES
+        );
+
+        const idsAtividades = new Set(
+            eventosAtividades.map(evento => String(evento.id))
+        );
+
+        const nomeEventoPorId = new Map(
+            eventosAtividades.map(evento => [String(evento.id), evento.nome || ""])
+        );
+
+        const dadosAtividades = dados.filter(
+            item => idsAtividades.has(String(item.evento_id))
+        );
+
+        if (!dadosAtividades.length) {
+            alert("Nenhuma movimentação registrada nas atividades.");
+            return;
+        }
+
+        const linhasComHorario = dadosAtividades.map(item => ({
+            Atividade: nomeEventoPorId.get(String(item.evento_id)) || "Atividade não encontrada",
+            Nome: item.inscritos?.nome || "",
+            "Número de inscrição": item.inscritos?.numero_inscricao ||
+                item.numero_inscricao || "",
+            CPF: item.inscritos?.documento || "",
+            "E-mail institucional": item.inscritos?.email_institucional || "",
+            "RA / Matrícula": item.inscritos?.ra_matricula || "",
+            Movimento: formatarMovimento(item.tipo_movimento),
+            Horário: item.horario
+                ? new Date(item.horario).toLocaleString("pt-BR")
+                : "",
+            _horarioRaw: item.horario || ""
+        }));
+
+        linhasComHorario.sort((a, b) =>
+            a.Atividade.localeCompare(b.Atividade, "pt-BR") ||
+            String(a._horarioRaw).localeCompare(String(b._horarioRaw)) ||
+            a.Nome.localeCompare(b.Nome, "pt-BR")
+        );
+
+        const linhas = linhasComHorario.map(({ _horarioRaw, ...linha }) => linha);
+
+        const ws = XLSX.utils.json_to_sheet(linhas);
+        ws["!cols"] = [
+            { wch: 52 },
+            { wch: 38 },
+            { wch: 20 },
+            { wch: 18 },
+            { wch: 42 },
+            { wch: 18 },
+            { wch: 16 },
+            { wch: 24 }
+        ];
+        ws["!autofilter"] = { ref: `A1:H${linhas.length + 1}` };
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Todas movimentacoes");
+        XLSX.writeFile(wb, "movimentacoes_todas_atividades.xlsx");
+    } catch (erro) {
+        console.error("Erro ao exportar todas as movimentações:", erro);
+        alert("Erro ao buscar todas as movimentações para exportar:\n" + erro.message);
+    }
 }
 
 async function limparEventoAtual() {
