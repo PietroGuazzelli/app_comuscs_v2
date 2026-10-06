@@ -693,6 +693,17 @@ tbody tr:hover { background: var(--blue-50); }
     .colab-ops-card { padding: 16px; }
 }
 
+
+.activity-filter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+@media (max-width: 680px) {
+    .activity-filter-grid { grid-template-columns: 1fr; }
+}
+
 </style>
 </head>
 
@@ -724,6 +735,21 @@ tbody tr:hover { background: var(--blue-50); }
       <div class="flow-step"><span>1</span> Selecionar atividade</div>
       <div class="flow-step"><span>2</span> Ativar câmera</div>
       <div class="flow-step"><span>3</span> Ler o QR Code</div>
+    </div>
+
+    <div class="activity-filter-grid">
+      <div class="field-group">
+        <label for="filtroDataAtividade">Dia da atividade</label>
+        <select id="filtroDataAtividade" onchange="atualizarFiltroTipos(); aplicarFiltrosAtividades();">
+          <option value="">Todos os dias</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label for="filtroTipoAtividade">Tipo de atividade</label>
+        <select id="filtroTipoAtividade" onchange="aplicarFiltrosAtividades()">
+          <option value="">Todos os tipos</option>
+        </select>
+      </div>
     </div>
 
     <div class="field-group">
@@ -1387,9 +1413,92 @@ async function trocarCamera() {
     }
 }
 
+function formatarDataAtividade(data) {
+    const texto = String(data || "").slice(0, 10);
+    const m = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : texto;
+}
+
+function preencherFiltroDatas() {
+    const select = document.getElementById("filtroDataAtividade");
+    const anterior = select.value;
+    const datas = Array.from(new Set(
+        EVENTOS_DISPONIVEIS
+            .map(ev => String(ev.data_evento || "").slice(0, 10))
+            .filter(Boolean)
+    )).sort();
+
+    select.innerHTML = '<option value="">Todos os dias</option>';
+    datas.forEach(data => {
+        const option = document.createElement("option");
+        option.value = data;
+        option.textContent = formatarDataAtividade(data);
+        select.appendChild(option);
+    });
+
+    if (anterior && datas.includes(anterior)) select.value = anterior;
+}
+
+function atualizarFiltroTipos() {
+    const dataSelecionada = document.getElementById("filtroDataAtividade").value;
+    const select = document.getElementById("filtroTipoAtividade");
+    const anterior = select.value;
+
+    const tipos = Array.from(new Set(
+        EVENTOS_DISPONIVEIS
+            .filter(ev => !dataSelecionada ||
+                String(ev.data_evento || "").slice(0, 10) === dataSelecionada)
+            .map(ev => String(ev.tipo_atividade || "").trim())
+            .filter(Boolean)
+    )).sort((a,b) => a.localeCompare(b, "pt-BR"));
+
+    select.innerHTML = '<option value="">Todos os tipos</option>';
+    tipos.forEach(tipo => {
+        const option = document.createElement("option");
+        option.value = tipo;
+        option.textContent = tipo;
+        select.appendChild(option);
+    });
+
+    if (anterior && tipos.includes(anterior)) select.value = anterior;
+}
+
+async function aplicarFiltrosAtividades() {
+    const data = document.getElementById("filtroDataAtividade").value;
+    const tipo = document.getElementById("filtroTipoAtividade").value;
+    const select = document.getElementById("eventoSelect");
+    const valorAnterior = select.value;
+
+    const filtradas = EVENTOS_DISPONIVEIS.filter(ev => {
+        const dataEv = String(ev.data_evento || "").slice(0, 10);
+        const tipoEv = String(ev.tipo_atividade || "").trim();
+        return (!data || dataEv === data) && (!tipo || tipoEv === tipo);
+    });
+
+    select.innerHTML = '<option value="">Selecione uma atividade</option>';
+
+    filtradas
+        .sort((a,b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"))
+        .forEach(ev => {
+            const option = document.createElement("option");
+            option.value = ev.id;
+            option.dataset.nome = ev.nome;
+            option.textContent = ev.nome;
+            select.appendChild(option);
+        });
+
+    if (valorAnterior && filtradas.some(ev => String(ev.id) === String(valorAnterior))) {
+        select.value = valorAnterior;
+    } else {
+        EVENTO_ID = "";
+        EVENTO_NOME = "";
+        limparTelaEvento();
+    }
+}
+
 async function carregarEventos() {
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/eventos?select=id,nome,data_evento&order=criado_em.desc`,
+        `${SUPABASE_URL}/rest/v1/eventos?select=*&order=data_evento.asc,nome.asc`,
         { headers: headers() }
     );
 
@@ -1399,42 +1508,25 @@ async function carregarEventos() {
     }
 
     const todosEventos = await res.json();
-    const eventos = todosEventos.filter(evento => evento.nome !== NOME_EVENTO_COLABORADORES);
-    EVENTOS_DISPONIVEIS = eventos;
-    const select = document.getElementById("eventoSelect");
+    EVENTOS_DISPONIVEIS = todosEventos.filter(
+        evento => evento.nome !== NOME_EVENTO_COLABORADORES
+    );
 
-    select.innerHTML = "";
-
-    if (!eventos.length) {
-        select.innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
-        EVENTO_ID = "";
-        EVENTO_NOME = "";
-        preencherSeletoresAdmin();
-        limparTelaEvento();
-        return;
-    }
-
-    eventos.forEach(ev => {
-        const option = document.createElement("option");
-        option.value = ev.id;
-        option.textContent = ev.data_evento ? `${ev.nome} - ${ev.data_evento}` : ev.nome;
-        option.dataset.nome = ev.nome;
-        select.appendChild(option);
-    });
-
-    EVENTO_ID = select.value;
-    EVENTO_NOME = select.options[select.selectedIndex].dataset.nome;
-    preencherSeletoresAdmin();
-
-    await atualizarDashboard();
-    await carregarPresencas();
-    await carregarMovimentacoes();
+    preencherFiltroDatas();
+    atualizarFiltroTipos();
+    await aplicarFiltrosAtividades();
 }
+
 
 function trocarEvento() {
     const select = document.getElementById("eventoSelect");
     EVENTO_ID = select.value;
-    EVENTO_NOME = select.options[select.selectedIndex]?.dataset.nome || "evento";
+    EVENTO_NOME = select.options[select.selectedIndex]?.dataset.nome || "";
+
+    if (!EVENTO_ID) {
+        limparTelaEvento();
+        return;
+    }
 
     atualizarEspelhosAdmin();
     atualizarDashboard();
