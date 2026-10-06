@@ -631,6 +631,68 @@ tbody tr:hover { background: var(--blue-50); }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+/* Módulo operacional de colaboradores */
+.colab-entry-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+}
+.colab-entry-card .button-row { margin: 0; }
+.colab-ops-shell {
+    position: fixed;
+    z-index: 1200;
+    inset: 0;
+    display: none;
+    overflow-y: auto;
+    background: var(--canvas);
+}
+.colab-ops-shell.is-open { display: block; }
+.colab-ops-topbar {
+    position: sticky;
+    z-index: 3;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 72px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,.96);
+    backdrop-filter: blur(12px);
+}
+.colab-ops-topbar > div { margin-right: auto; }
+.colab-ops-topbar strong, .colab-ops-topbar small { display: block; }
+.colab-ops-topbar small { margin-top: 2px; color: var(--ink-500); }
+.colab-ops-content {
+    width: min(920px, calc(100% - 28px));
+    margin: 0 auto;
+    padding: 24px 0 42px;
+}
+.colab-ops-card {
+    margin-bottom: 16px;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: #fff;
+    box-shadow: var(--shadow-sm);
+}
+.colab-ops-close {
+    flex: 0 0 auto;
+    width: 42px;
+    min-height: 42px;
+    padding: 0;
+    font-size: 20px;
+}
+@media (max-width: 680px) {
+    .colab-entry-card { align-items: stretch; flex-direction: column; }
+    .colab-entry-card .button-row,
+    .colab-entry-card .button-row button { width: 100%; }
+    .colab-ops-content { width: min(100% - 20px, 920px); padding-top: 14px; }
+    .colab-ops-card { padding: 16px; }
+}
+
 </style>
 </head>
 
@@ -742,9 +804,72 @@ tbody tr:hover { background: var(--blue-50); }
     </div>
   </section>
 
-  
+
+  <section class="card colab-entry-card" aria-labelledby="colabEntryTitle">
+    <div>
+      <p class="eyebrow">Equipe COMUSCS</p>
+      <h3 id="colabEntryTitle">Validação de colaboradores</h3>
+      <p class="muted">Registre entrada e saída da equipe utilizando o CPF.</p>
+    </div>
+    <div class="button-row">
+      <button type="button" class="button-primary" onclick="abrirValidacaoColaboradores()">Validar colaboradores</button>
+    </div>
+  </section>
+
 
 </main>
+
+
+<div id="colabOpsShell" class="colab-ops-shell" aria-hidden="true">
+  <header class="colab-ops-topbar">
+    <div>
+      <strong>Validação de colaboradores</strong>
+      <small>Entrada e saída da equipe por CPF</small>
+    </div>
+    <button type="button" class="button-secondary colab-ops-close" onclick="fecharValidacaoColaboradores()" aria-label="Fechar">×</button>
+  </header>
+
+  <main class="colab-ops-content">
+    <section class="colab-ops-card">
+      <p class="eyebrow">Registro operacional</p>
+      <h2>Validar presença</h2>
+      <p class="muted">Na primeira validação o sistema registra a entrada. Na segunda validação do mesmo CPF, registra a saída.</p>
+
+      <form id="formValidacaoColaborador" class="collaborator-validation-row mt-18" onsubmit="registrarPresencaColaborador(event)">
+        <div class="field-group">
+          <label for="cpfColaboradorInput">CPF do colaborador</label>
+          <input id="cpfColaboradorInput" type="text" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="000.000.000-00" oninput="formatarCampoCpf(this)">
+        </div>
+        <button type="submit" id="btnValidarColaborador" class="button-primary">Validar presença</button>
+      </form>
+
+      <div id="resultadoColaborador" class="result collaborator-result" role="status" aria-live="polite"></div>
+
+      <div class="collaborator-stats" aria-label="Resumo dos colaboradores">
+        <div class="collaborator-stat"><span>Importados</span><strong id="colabResumoImportados">0</strong></div>
+        <div class="collaborator-stat"><span>Com entrada</span><strong id="colabResumoEntradas">0</strong></div>
+        <div class="collaborator-stat"><span>Com saída</span><strong id="colabResumoSaidas">0</strong></div>
+        <div class="collaborator-stat"><span>Dentro agora</span><strong id="colabResumoDentro">0</strong></div>
+      </div>
+    </section>
+
+    <section class="colab-ops-card">
+      <div class="records-header" style="padding:0 0 14px;">
+        <div>
+          <p class="eyebrow">Tempo real</p>
+          <h3>Validações recentes</h3>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nome</th><th>CPF</th><th>Registro</th><th>Data e horário</th></tr></thead>
+          <tbody id="listaMovimentacoesColaboradores"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
 
 <script>
 const SUPABASE_URL = "https://goytizsanwooamfjtvqk.supabase.co";
@@ -773,6 +898,25 @@ function headers(extra = {}) {
         "Authorization": `Bearer ${SUPABASE_KEY}`,
         ...extra
     };
+}
+
+function abrirValidacaoColaboradores() {
+    const shell = document.getElementById("colabOpsShell");
+    shell.classList.add("is-open");
+    shell.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    definirResultadoColaborador("", "");
+    carregarPainelColaboradores();
+    setTimeout(() => document.getElementById("cpfColaboradorInput")?.focus(), 100);
+}
+
+function fecharValidacaoColaboradores() {
+    const shell = document.getElementById("colabOpsShell");
+    shell.classList.remove("is-open");
+    shell.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    document.getElementById("cpfColaboradorInput").value = "";
+    definirResultadoColaborador("", "");
 }
 
 function autenticarZonaRisco() {
@@ -3512,6 +3656,11 @@ async function resetCompleto() {
 carregarEventos();
 
 document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && document.getElementById("colabOpsShell")?.classList.contains("is-open")) {
+        fecharValidacaoColaboradores();
+        return;
+    }
+
     if (event.key === "Escape" && document.body.classList.contains("admin-open")) {
         fecharAdmin();
     }
