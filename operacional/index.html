@@ -833,6 +833,18 @@ tbody tr:hover { background: var(--blue-50); }
   </section>
 
 
+  <section class="card colab-entry-card" aria-labelledby="cpfParticipantEntryTitle">
+    <div>
+      <p class="eyebrow">Alternativa ao QR Code</p>
+      <h3 id="cpfParticipantEntryTitle">Validação de participante por CPF</h3>
+      <p class="muted">Use quando o QR Code estiver borrado, danificado ou não puder ser lido.</p>
+    </div>
+    <div class="button-row">
+      <button type="button" class="button-primary" onclick="abrirValidacaoCpfParticipante()">Validar por CPF</button>
+    </div>
+  </section>
+
+
   <section class="card colab-entry-card" aria-labelledby="colabEntryTitle">
     <div>
       <p class="eyebrow">Equipe COMUSCS</p>
@@ -846,6 +858,61 @@ tbody tr:hover { background: var(--blue-50); }
 
 
 </main>
+
+
+<div id="cpfParticipantOpsShell" class="colab-ops-shell" aria-hidden="true">
+  <header class="colab-ops-topbar">
+    <div>
+      <strong>Validação de participante por CPF</strong>
+      <small>Alternativa para QR Code danificado ou ilegível</small>
+    </div>
+    <button type="button" class="button-secondary colab-ops-close" onclick="fecharValidacaoCpfParticipante()" aria-label="Fechar">×</button>
+  </header>
+
+  <main class="colab-ops-content">
+    <section class="colab-ops-card">
+      <p class="eyebrow">Registro operacional alternativo</p>
+      <h2>Validar participante</h2>
+      <p class="muted">Selecione a atividade correta e informe o CPF. O sistema localizará somente participantes já cadastrados nessa atividade.</p>
+
+      <div class="activity-filter-grid mt-18">
+        <div class="field-group">
+          <label for="cpfParticipanteData">Dia da atividade</label>
+          <select id="cpfParticipanteData" onchange="atualizarTiposCpfParticipante(); aplicarFiltrosCpfParticipante();">
+            <option value="">Todos os dias</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="cpfParticipanteTipo">Tipo de atividade</label>
+          <select id="cpfParticipanteTipo" onchange="aplicarFiltrosCpfParticipante()">
+            <option value="">Todos os tipos</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-group mt-14">
+        <label for="cpfParticipanteEvento">Atividade</label>
+        <select id="cpfParticipanteEvento">
+          <option value="">Selecione uma atividade</option>
+        </select>
+      </div>
+
+      <form id="formValidacaoCpfParticipante" class="collaborator-validation-row mt-18" onsubmit="registrarPresencaParticipanteCpf(event)">
+        <div class="field-group">
+          <label for="cpfParticipanteInput">CPF do participante</label>
+          <input id="cpfParticipanteInput" type="text" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="000.000.000-00" oninput="formatarCampoCpf(this)">
+        </div>
+        <button type="submit" id="btnValidarCpfParticipante" class="button-primary">Validar presença</button>
+      </form>
+
+      <div id="resultadoCpfParticipante" class="result collaborator-result" role="status" aria-live="polite"></div>
+
+      <div class="admin-callout mt-18">
+        Este modo não cria inscrição nova. O CPF precisa corresponder a um participante já cadastrado na atividade selecionada.
+      </div>
+    </section>
+  </main>
+</div>
 
 
 <div id="colabOpsShell" class="colab-ops-shell" aria-hidden="true">
@@ -907,6 +974,7 @@ const NOME_EVENTO_COLABORADORES = "__CONTROLE_COLABORADORES__";
 
 let processando = false;
 let colaboradorProcessando = false;
+let cpfParticipanteProcessando = false;
 let EVENTO_ID = "";
 let EVENTO_NOME = "";
 let EVENTOS_DISPONIVEIS = [];
@@ -928,6 +996,321 @@ function headers(extra = {}) {
         "Authorization": `Bearer ${SUPABASE_KEY}`,
         ...extra
     };
+}
+
+function definirResultadoCpfParticipante(tipo, mensagem) {
+    const resultado = document.getElementById("resultadoCpfParticipante");
+    if (!resultado) return;
+
+    resultado.className = "result collaborator-result";
+    resultado.innerHTML = "";
+
+    if (!mensagem) return;
+
+    const span = document.createElement("span");
+    span.className = tipo === "ok" ? "ok" : tipo === "warning" ? "aviso" : "erro";
+    span.textContent = mensagem;
+    resultado.appendChild(span);
+}
+
+function preencherDatasCpfParticipante() {
+    const select = document.getElementById("cpfParticipanteData");
+    if (!select) return;
+
+    const anterior = select.value;
+    const datas = Array.from(new Set(
+        EVENTOS_DISPONIVEIS
+            .map(ev => String(ev.data_evento || "").slice(0, 10))
+            .filter(Boolean)
+    )).sort();
+
+    select.innerHTML = '<option value="">Todos os dias</option>';
+    datas.forEach(data => {
+        const option = document.createElement("option");
+        option.value = data;
+        option.textContent = formatarDataAtividade(data);
+        select.appendChild(option);
+    });
+
+    if (anterior && datas.includes(anterior)) select.value = anterior;
+}
+
+function atualizarTiposCpfParticipante() {
+    const data = document.getElementById("cpfParticipanteData")?.value || "";
+    const select = document.getElementById("cpfParticipanteTipo");
+    if (!select) return;
+
+    const anterior = select.value;
+    const tipos = Array.from(new Set(
+        EVENTOS_DISPONIVEIS
+            .filter(ev => !data || String(ev.data_evento || "").slice(0, 10) === data)
+            .map(ev => String(ev.tipo_atividade || "").trim())
+            .filter(Boolean)
+    )).sort((a,b) => a.localeCompare(b, "pt-BR"));
+
+    select.innerHTML = '<option value="">Todos os tipos</option>';
+    tipos.forEach(tipo => {
+        const option = document.createElement("option");
+        option.value = tipo;
+        option.textContent = tipo;
+        select.appendChild(option);
+    });
+
+    if (anterior && tipos.includes(anterior)) select.value = anterior;
+}
+
+function aplicarFiltrosCpfParticipante() {
+    const data = document.getElementById("cpfParticipanteData")?.value || "";
+    const tipo = document.getElementById("cpfParticipanteTipo")?.value || "";
+    const select = document.getElementById("cpfParticipanteEvento");
+    if (!select) return;
+
+    const anterior = select.value;
+    const filtradas = EVENTOS_DISPONIVEIS.filter(ev => {
+        const dataEv = String(ev.data_evento || "").slice(0, 10);
+        const tipoEv = String(ev.tipo_atividade || "").trim();
+        return (!data || dataEv === data) && (!tipo || tipoEv === tipo);
+    });
+
+    select.innerHTML = '<option value="">Selecione uma atividade</option>';
+
+    filtradas
+        .sort((a,b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"))
+        .forEach(ev => {
+            const option = document.createElement("option");
+            option.value = ev.id;
+            option.dataset.nome = ev.nome;
+            option.textContent = ev.nome;
+            select.appendChild(option);
+        });
+
+    if (anterior && filtradas.some(ev => String(ev.id) === String(anterior))) {
+        select.value = anterior;
+    }
+}
+
+function abrirValidacaoCpfParticipante() {
+    preencherDatasCpfParticipante();
+    atualizarTiposCpfParticipante();
+    aplicarFiltrosCpfParticipante();
+
+    const shell = document.getElementById("cpfParticipantOpsShell");
+    shell.classList.add("is-open");
+    shell.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    definirResultadoCpfParticipante("", "");
+
+    // Se já houver uma atividade selecionada na tela principal, replica a seleção.
+    if (EVENTO_ID) {
+        const evento = EVENTOS_DISPONIVEIS.find(ev => String(ev.id) === String(EVENTO_ID));
+        if (evento) {
+            const data = String(evento.data_evento || "").slice(0, 10);
+            const dataSelect = document.getElementById("cpfParticipanteData");
+            const tipoSelect = document.getElementById("cpfParticipanteTipo");
+
+            if (data && dataSelect) dataSelect.value = data;
+            atualizarTiposCpfParticipante();
+
+            if (tipoSelect && evento.tipo_atividade) {
+                tipoSelect.value = String(evento.tipo_atividade);
+            }
+
+            aplicarFiltrosCpfParticipante();
+            const eventoSelect = document.getElementById("cpfParticipanteEvento");
+            if (eventoSelect) eventoSelect.value = String(EVENTO_ID);
+        }
+    }
+
+    setTimeout(() => document.getElementById("cpfParticipanteInput")?.focus(), 100);
+}
+
+function fecharValidacaoCpfParticipante() {
+    const shell = document.getElementById("cpfParticipantOpsShell");
+    shell.classList.remove("is-open");
+    shell.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+
+    const input = document.getElementById("cpfParticipanteInput");
+    if (input) input.value = "";
+    definirResultadoCpfParticipante("", "");
+}
+
+async function buscarParticipantePorCpfSeguro(eventoId, cpf) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/buscar_inscrito_por_cpf_atividade`, {
+        method: "POST",
+        headers: headers({
+            "Content-Type": "application/json"
+        }),
+        body: JSON.stringify({
+            p_evento_id: String(eventoId),
+            p_cpf: String(cpf)
+        })
+    });
+
+    if (!res.ok) {
+        const erro = await res.text();
+
+        if (res.status === 404 || /buscar_inscrito_por_cpf_atividade/i.test(erro)) {
+            throw new Error("A busca segura por CPF ainda não foi configurada no Supabase.");
+        }
+
+        throw new Error(erro);
+    }
+
+    const dados = await res.json();
+    return Array.isArray(dados) ? dados : (dados ? [dados] : []);
+}
+
+async function buscarUltimoMovimentoEvento(eventoId, inscritoId) {
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${encodeURIComponent(eventoId)}` +
+        `&inscrito_id=eq.${encodeURIComponent(inscritoId)}` +
+        `&select=tipo_movimento,horario&order=horario.desc&limit=1`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) throw new Error(await res.text());
+    return (await res.json())[0] || null;
+}
+
+async function inserirMovimentoEvento(eventoId, inscrito, tipo) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca`, {
+        method: "POST",
+        headers: headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+            evento_id: eventoId,
+            inscrito_id: inscrito.id,
+            numero_inscricao: inscrito.numero_inscricao,
+            tipo_movimento: tipo
+        })
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+}
+
+async function registrarPresencaParticipanteCpf(event) {
+    event?.preventDefault();
+    if (cpfParticipanteProcessando) return;
+
+    const eventoSelect = document.getElementById("cpfParticipanteEvento");
+    const input = document.getElementById("cpfParticipanteInput");
+    const botao = document.getElementById("btnValidarCpfParticipante");
+    const eventoId = eventoSelect?.value || "";
+    const eventoNome = eventoSelect?.options[eventoSelect.selectedIndex]?.dataset.nome ||
+        eventoSelect?.options[eventoSelect.selectedIndex]?.textContent || "atividade";
+    const cpf = normalizarDocumento(input?.value || "");
+
+    if (!eventoId) {
+        definirResultadoCpfParticipante("error", "Selecione a atividade.");
+        return;
+    }
+
+    if (!validarCpf(cpf)) {
+        definirResultadoCpfParticipante("error", "Digite um CPF válido com 11 dígitos.");
+        input?.focus();
+        return;
+    }
+
+    cpfParticipanteProcessando = true;
+    if (botao) botao.disabled = true;
+    definirResultadoCpfParticipante("warning", "Localizando participante...");
+
+    try {
+        const encontrados = await buscarParticipantePorCpfSeguro(eventoId, cpf);
+
+        if (!encontrados.length) {
+            definirResultadoCpfParticipante(
+                "error",
+                "CPF não encontrado entre os participantes cadastrados nesta atividade."
+            );
+            tocarSom("erro");
+            return;
+        }
+
+        if (encontrados.length > 1) {
+            throw new Error("Há mais de um cadastro com este CPF nesta atividade. Faça o ajuste pela área administrativa.");
+        }
+
+        const inscrito = encontrados[0];
+
+        const resPresenca = await fetch(
+            `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${encodeURIComponent(eventoId)}` +
+            `&inscrito_id=eq.${encodeURIComponent(inscrito.id)}&select=id&limit=1`,
+            { headers: headers() }
+        );
+        if (!resPresenca.ok) throw new Error(await resPresenca.text());
+
+        const presencas = await resPresenca.json();
+
+        if (!presencas.length) {
+            const resInsert = await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
+                method: "POST",
+                headers: headers({ "Content-Type": "application/json" }),
+                body: JSON.stringify({
+                    evento_id: eventoId,
+                    inscrito_id: inscrito.id,
+                    numero_inscricao: inscrito.numero_inscricao,
+                    metodo: "cpf"
+                })
+            });
+
+            if (!resInsert.ok) throw new Error(await resInsert.text());
+
+            await inserirMovimentoEvento(eventoId, inscrito, "entrada");
+
+            definirResultadoCpfParticipante(
+                "ok",
+                "Entrada registrada por CPF: " + inscrito.nome + " — " + eventoNome
+            );
+            tocarSom("ok");
+        } else {
+            const ultimo = await buscarUltimoMovimentoEvento(eventoId, inscrito.id);
+
+            if (!ultimo || ultimo.tipo_movimento === "saida") {
+                const confirmar = confirm(
+                    inscrito.nome + " já possui presença registrada.\n\nDeseja registrar RETORNO agora?"
+                );
+
+                if (!confirmar) {
+                    definirResultadoCpfParticipante("warning", "Validação cancelada.");
+                    return;
+                }
+
+                await inserirMovimentoEvento(eventoId, inscrito, "retorno");
+                definirResultadoCpfParticipante("ok", "Retorno registrado por CPF: " + inscrito.nome);
+                tocarSom("ok");
+            } else {
+                const confirmar = confirm(
+                    inscrito.nome + " consta como dentro da atividade.\n\nDeseja registrar SAÍDA agora?"
+                );
+
+                if (!confirmar) {
+                    definirResultadoCpfParticipante("warning", "Validação cancelada.");
+                    return;
+                }
+
+                await inserirMovimentoEvento(eventoId, inscrito, "saida");
+                definirResultadoCpfParticipante("ok", "Saída registrada por CPF: " + inscrito.nome);
+                tocarSom("ok");
+            }
+        }
+
+        if (input) input.value = "";
+
+        if (String(EVENTO_ID) === String(eventoId)) {
+            carregarPresencas();
+            carregarMovimentacoes();
+            atualizarDashboard();
+        }
+    } catch (erro) {
+        console.error("Erro na validação de participante por CPF:", erro);
+        definirResultadoCpfParticipante("error", "Erro ao validar: " + erro.message);
+        tocarSom("erro");
+    } finally {
+        cpfParticipanteProcessando = false;
+        if (botao) botao.disabled = false;
+        input?.focus();
+    }
 }
 
 function abrirValidacaoColaboradores() {
@@ -1517,6 +1900,10 @@ async function carregarEventos() {
     preencherFiltroDatas();
     atualizarFiltroTipos();
     await aplicarFiltrosAtividades();
+
+    preencherDatasCpfParticipante();
+    atualizarTiposCpfParticipante();
+    aplicarFiltrosCpfParticipante();
 }
 
 
@@ -3796,3 +4183,5 @@ setInterval(() => {
 
 </body>
 </html>
+
+<!-- Versão 2026-10-06.OP8 -->
