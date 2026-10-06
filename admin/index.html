@@ -7,7 +7,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
@@ -751,7 +750,7 @@ body.admin-standalone {
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-10-06.ADM5</strong>
+        <strong>Versão 2026-10-06.ADM6</strong>
         Interface mobile · participantes e colaboradores
       </div>
     </aside>
@@ -813,13 +812,7 @@ body.admin-standalone {
             <div id="importacaoEven3Status" class="import-status initially-hidden"></div>
           </article>
 
-          <article class="admin-card admin-card-full">
-            <h4>Importação CSV para uma atividade</h4>
-            <p class="muted">Use o CSV original exportado do Even3, sem renomear as colunas.</p>
-            <div class="field-group"><label for="adminCsvEventoSelect">Atividade que receberá a lista</label><select id="adminCsvEventoSelect"><option value="">Selecione uma atividade</option></select></div>
-            <div class="field-group mt-14"><label for="csvInput">Arquivo CSV</label><input type="file" id="csvInput" accept=".csv"></div>
-            <div class="button-row"><button type="button" onclick="importarCSV()">Importar lista para a atividade selecionada</button></div>
-          </article>
+
         </div>
       </section>
 
@@ -1225,7 +1218,7 @@ async function atualizarResumoGeralAdmin() {
 }
 
 function preencherSeletoresAdmin() {
-    ["adminCsvEventoSelect", "adminRelatorioEventoSelect", "adminRiscoEventoSelect"].forEach(id => {
+    ["adminRelatorioEventoSelect", "adminRiscoEventoSelect"].forEach(id => {
         const select = document.getElementById(id);
         if (!select) return;
 
@@ -3272,114 +3265,6 @@ async function importarExcelEven3() {
     }
 }
 
-async function importarCSV() {
-    const atividade = obterAtividadeAdmin("adminCsvEventoSelect");
-
-    if (!atividade) {
-        alert("Selecione a atividade que receberá a lista CSV.");
-        return;
-    }
-
-    const fileInput = document.getElementById("csvInput");
-    const file = fileInput.files[0];
-
-    if (!file) {
-        alert("Selecione um arquivo CSV.");
-        return;
-    }
-
-    Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        delimiter: ";",
-
-        complete: async function(results) {
-            const rows = results.data;
-
-            if (!rows.length) {
-                alert("CSV vazio.");
-                return;
-            }
-
-            const payload = rows.map(r => {
-                const nome = obterCampo(r, [
-                    "Nome",
-                    "nome",
-                    "NOME",
-                    "Nome Completo",
-                    "Participante"
-                ]);
-
-                const numeroInscricao = obterCampo(r, [
-                    "Número de Inscrição",
-                    "Numero de Inscricao",
-                    "Nº Inscrição",
-                    "N Inscrição",
-                    "Inscrição",
-                    "inscricao",
-                    "numero_inscricao"
-                ]).trim();
-
-                return {
-                    evento_id: atividade.id,
-                    nome: nome,
-                    numero_inscricao: numeroInscricao
-                };
-            }).filter(p =>
-                p.nome &&
-                p.numero_inscricao &&
-                String(p.numero_inscricao).trim() !== ""
-            );
-
-            if (!payload.length) {
-                console.log("DEBUG CSV:", rows);
-                alert("Nenhum registro válido encontrado no CSV. Verifique se há participantes com Número de Inscrição preenchido.");
-                return;
-            }
-
-            const payloadSemDuplicados = Array.from(
-                new Map(
-                    payload.map(item => [
-                        `${item.evento_id}-${item.numero_inscricao}`,
-                        item
-                    ])
-                ).values()
-            );
-
-            const ignoradosPorDuplicidade = payload.length - payloadSemDuplicados.length;
-            const ignoradosSemInscricao = rows.length - payload.length;
-
-            const res = await fetch(
-                `${SUPABASE_URL}/rest/v1/inscritos?on_conflict=evento_id,numero_inscricao`,
-                {
-                    method: "POST",
-                    headers: headers({
-                        "Content-Type": "application/json",
-                        "Prefer": "resolution=merge-duplicates,return=minimal"
-                    }),
-                    body: JSON.stringify(payloadSemDuplicados)
-                }
-            );
-
-            if (!res.ok) {
-                const erro = await res.text();
-                alert("Erro ao importar CSV:\n" + erro);
-                return;
-            }
-
-            alert(
-                `Importação concluída para a atividade "${atividade.nome}".\n\n` +
-                `Inscritos válidos importados/atualizados: ${payloadSemDuplicados.length}\n` +
-                `Linhas ignoradas sem número de inscrição: ${ignoradosSemInscricao}\n` +
-                `Duplicados dentro do CSV ignorados: ${ignoradosPorDuplicidade}`
-            );
-
-            fileInput.value = "";
-            if (String(EVENTO_ID) === String(atividade.id)) atualizarDashboard();
-            atualizarResumoGeralAdmin();
-        }
-    });
-}
 
 async function atualizarDashboard() {
     if (!EVENTO_ID) {
