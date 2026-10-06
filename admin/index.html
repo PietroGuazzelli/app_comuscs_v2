@@ -751,7 +751,7 @@ body.admin-standalone {
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-10-05.ADM4</strong>
+        <strong>Versão 2026-10-06.ADM5</strong>
         Interface mobile · participantes e colaboradores
       </div>
     </aside>
@@ -881,14 +881,58 @@ body.admin-standalone {
       <section id="adminSection-eventos" class="admin-section">
         <div class="admin-section-heading">
           <p class="eyebrow">Gerenciar eventos</p>
-          <h2>Criar nova atividade</h2>
-          <p>Cadastre manualmente uma atividade quando ela não vier na importação completa.</p>
+          <h2>Cadastros administrativos</h2>
+          <p>Crie atividades manualmente e trate inscrições excepcionais que não existem no Even3.</p>
         </div>
         <div class="admin-grid">
           <article class="admin-card admin-card-full">
+            <h4>Criar nova atividade</h4>
             <div class="field-group"><label for="novoEventoNome">Nome da atividade</label><input id="novoEventoNome" type="text" placeholder="Ex.: Oficina de suturas"></div>
             <div class="field-group mt-14"><label for="novoEventoData">Data</label><input id="novoEventoData" type="date"></div>
             <div class="button-row"><button type="button" class="button-primary" onclick="criarEvento()">Criar atividade</button></div>
+          </article>
+
+          <article class="admin-card admin-card-full">
+            <h4>Inscrição manual excepcional</h4>
+            <p class="muted">Use somente quando a pessoa não estiver inscrita no Even3 nem nas planilhas importadas. O cadastro e a presença serão registrados diretamente pelo painel administrativo.</p>
+
+            <div class="admin-grid mt-18">
+              <div class="field-group">
+                <label for="manualDataAtividade">Dia da atividade</label>
+                <select id="manualDataAtividade" onchange="preencherAtividadesFiltradasAdmin('manualDataAtividade','manualAtividadeSelect')">
+                  <option value="">Selecione o dia</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="manualAtividadeSelect">Atividade</label>
+                <select id="manualAtividadeSelect">
+                  <option value="">Selecione a atividade</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group mt-14">
+              <label for="manualNomeParticipante">Nome completo</label>
+              <input id="manualNomeParticipante" type="text" autocomplete="off" placeholder="Nome completo">
+            </div>
+
+            <div class="admin-grid mt-14">
+              <div class="field-group">
+                <label for="manualCpfParticipante">CPF</label>
+                <input id="manualCpfParticipante" type="text" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" oninput="formatarCampoCpf(this)">
+              </div>
+              <div class="field-group">
+                <label for="manualEmailParticipante">E-mail (opcional)</label>
+                <input id="manualEmailParticipante" type="email" autocomplete="off" placeholder="email@exemplo.com">
+              </div>
+            </div>
+
+            <div class="admin-callout mt-18">Esta ação cria um vínculo local apenas para a atividade escolhida e registra a presença/entrada imediatamente. O registro fica identificado internamente como cadastro manual administrativo.</div>
+
+            <div class="button-row">
+              <button type="button" class="button-primary" onclick="cadastrarParticipanteManualComPresenca()">Cadastrar e registrar presença</button>
+            </div>
+            <div id="manualParticipanteStatus" class="import-status initially-hidden"></div>
           </article>
         </div>
       </section>
@@ -929,21 +973,73 @@ body.admin-standalone {
       <section id="adminSection-risco" class="admin-section">
         <div class="admin-section-heading">
           <p class="eyebrow">Zona de risco</p>
-          <h2>Ações destrutivas</h2>
-          <p>Estas opções apagam dados e exigem a senha da Zona de Risco. Leia com atenção antes de continuar.</p>
+          <h2>Correções e ações destrutivas</h2>
+          <p>As correções abaixo alteram registros já realizados. Todas exigem usuário administrador autenticado e confirmação explícita.</p>
         </div>
         <div class="admin-grid">
+
+          <article class="admin-card danger-card admin-card-full">
+            <h4>Corrigir última leitura de um participante</h4>
+            <p class="muted">Use quando uma entrada, saída ou retorno tiver sido registrado por engano. O sistema apaga somente a leitura mais recente do participante naquela atividade. Se for a única entrada, a presença também é removida.</p>
+
+            <div class="admin-grid mt-18">
+              <div class="field-group">
+                <label for="ajusteParticipanteData">Dia</label>
+                <select id="ajusteParticipanteData" onchange="preencherAtividadesFiltradasAdmin('ajusteParticipanteData','ajusteParticipanteAtividade'); limparAjusteParticipante();">
+                  <option value="">Selecione o dia</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="ajusteParticipanteAtividade">Atividade</label>
+                <select id="ajusteParticipanteAtividade" onchange="carregarParticipantesAjuste()">
+                  <option value="">Selecione a atividade</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group mt-14">
+              <label for="ajusteParticipanteInscrito">Participante</label>
+              <select id="ajusteParticipanteInscrito" onchange="carregarInfoUltimaLeituraParticipante()">
+                <option value="">Selecione o participante</option>
+              </select>
+            </div>
+
+            <div id="ajusteParticipanteInfo" class="admin-callout mt-14">Selecione dia, atividade e participante.</div>
+            <div class="button-row">
+              <button type="button" class="button-warning" onclick="excluirUltimaLeituraParticipante()">Excluir última leitura deste participante</button>
+            </div>
+          </article>
+
+          <article class="admin-card danger-card admin-card-full">
+            <h4>Corrigir última leitura de um colaborador</h4>
+            <p class="muted">Apaga somente a entrada ou saída mais recente selecionada para aquele colaborador, preservando o cadastro e os demais registros.</p>
+
+            <div class="field-group mt-14">
+              <label for="ajusteColaboradorSelect">Colaborador</label>
+              <select id="ajusteColaboradorSelect" onchange="carregarInfoUltimaLeituraColaborador()">
+                <option value="">Selecione o colaborador</option>
+              </select>
+            </div>
+
+            <div id="ajusteColaboradorInfo" class="admin-callout mt-14">Selecione um colaborador.</div>
+            <div class="button-row">
+              <button type="button" class="button-warning" onclick="excluirUltimaLeituraColaborador()">Excluir última leitura deste colaborador</button>
+            </div>
+          </article>
+
           <article class="admin-card danger-card admin-action-card">
             <h4>Limpar movimentações de uma atividade</h4>
-            <p class="muted">Apaga entradas, saídas, retornos e presenças registradas da atividade selecionada, mas preserva a atividade e todos os participantes cadastrados.</p>
+            <p class="muted">Apaga todas as entradas, saídas, retornos e presenças registradas da atividade selecionada, mas preserva a atividade e os participantes cadastrados.</p>
             <div class="field-group mt-14"><label for="adminRiscoEventoSelect">Atividade cujas movimentações serão limpas</label><select id="adminRiscoEventoSelect"><option value="">Selecione uma atividade</option></select></div>
             <div class="button-row"><button type="button" class="button-warning" onclick="limparEventoAtual()">Limpar movimentações da atividade</button></div>
           </article>
+
           <article class="admin-card danger-card admin-action-card">
             <h4>Limpar colaboradores</h4>
             <p class="muted">Apaga a relação importada e todos os registros de entrada e saída dos colaboradores, sem afetar as atividades.</p>
             <div class="button-row"><button type="button" class="button-warning" onclick="limparDadosColaboradores()">Limpar dados dos colaboradores</button></div>
           </article>
+
           <article class="admin-card danger-card admin-action-card">
             <h4>Reset completo</h4>
             <p class="muted">Apaga todas as atividades, inscritos, presenças, movimentações e dados de colaboradores do aplicativo.</p>
@@ -1053,6 +1149,9 @@ function trocarSecaoAdmin(secao) {
     if (secao === "colaboradores") {
         carregarPainelColaboradores();
     }
+    if (secao === "risco") {
+        prepararZonaRisco();
+    }
 
     if (window.innerWidth <= 820) toggleAdminMenu(false);
 }
@@ -1147,6 +1246,59 @@ function preencherSeletoresAdmin() {
             select.value = valorAnterior;
         }
     });
+
+    preencherDatasAdmin("manualDataAtividade");
+    preencherDatasAdmin("ajusteParticipanteData");
+}
+
+function formatarDataAdmin(data) {
+    const texto = String(data || "").slice(0, 10);
+    const m = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? m[3] + "/" + m[2] + "/" + m[1] : texto;
+}
+
+function preencherDatasAdmin(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    const anterior = select.value;
+    const datas = Array.from(new Set(
+        EVENTOS_DISPONIVEIS
+            .map(evento => String(evento.data_evento || "").slice(0, 10))
+            .filter(Boolean)
+    )).sort();
+
+    select.innerHTML = '<option value="">Selecione o dia</option>';
+    datas.forEach(data => {
+        const option = document.createElement("option");
+        option.value = data;
+        option.textContent = formatarDataAdmin(data);
+        select.appendChild(option);
+    });
+
+    if (anterior && datas.includes(anterior)) select.value = anterior;
+}
+
+function preencherAtividadesFiltradasAdmin(dataSelectId, atividadeSelectId) {
+    const dataSelect = document.getElementById(dataSelectId);
+    const atividadeSelect = document.getElementById(atividadeSelectId);
+    if (!dataSelect || !atividadeSelect) return;
+
+    const data = dataSelect.value;
+    atividadeSelect.innerHTML = '<option value="">Selecione a atividade</option>';
+
+    EVENTOS_DISPONIVEIS
+        .filter(evento => !data || String(evento.data_evento || "").slice(0, 10) === data)
+        .sort((a,b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"))
+        .forEach(evento => {
+            const option = document.createElement("option");
+            option.value = evento.id;
+            option.dataset.nome = evento.nome;
+            option.textContent = evento.tipo_atividade
+                ? "[" + evento.tipo_atividade + "] " + evento.nome
+                : evento.nome;
+            atividadeSelect.appendChild(option);
+        });
 }
 
 function obterAtividadeAdmin(selectId) {
@@ -2920,8 +3072,26 @@ async function salvarParticipantesEven3(participantes) {
              String(candidatoLegado.even3_participante_id) === participante.even3_participante_id)
             ? candidatoLegado
             : null;
+        const documentoParticipante = normalizarDocumento(participante.documento);
+        const candidatosPorDocumento = documentoParticipante
+            ? existentes.filter(item =>
+                String(item.evento_id) === String(participante.evento_id) &&
+                !item.even3_participante_id &&
+                normalizarDocumento(item.documento) === documentoParticipante
+              )
+            : [];
+
+        if (candidatosPorDocumento.length > 1) {
+            throw new Error(
+                "Há mais de um cadastro manual com o mesmo CPF na atividade para " +
+                participante.nome + ". Corrija a duplicidade antes de importar novamente."
+            );
+        }
+
+        const candidatoManualPorDocumento = candidatosPorDocumento[0] || null;
+
         const candidatos = Array.from(new Map(
-            [existentePorId, existentePorNumero, legadoPorIdNoNumero]
+            [existentePorId, existentePorNumero, legadoPorIdNoNumero, candidatoManualPorDocumento]
                 .filter(Boolean)
                 .map(item => [item.id, item])
         ).values());
@@ -3805,6 +3975,465 @@ async function exportarTodasMovimentacoesExcel() {
     }
 }
 
+
+function definirStatusManualParticipante(mensagem, tipo = "info") {
+    const status = document.getElementById("manualParticipanteStatus");
+    if (!status) return;
+
+    status.style.display = "block";
+    status.textContent = mensagem;
+    status.style.background = tipo === "erro" ? "#f8d7da" :
+        tipo === "ok" ? "#d4edda" : "#eef5fc";
+    status.style.color = tipo === "erro" ? "#842029" :
+        tipo === "ok" ? "#0f5132" : "#0b2f55";
+}
+
+function gerarNumeroInscricaoManual() {
+    const aleatorio = new Uint32Array(1);
+    crypto.getRandomValues(aleatorio);
+    return "MAN-" + Date.now() + "-" + String(aleatorio[0] % 100000).padStart(5, "0");
+}
+
+async function cadastrarParticipanteManualComPresenca() {
+    const atividade = obterAtividadeAdmin("manualAtividadeSelect");
+    const nome = String(document.getElementById("manualNomeParticipante")?.value || "")
+        .trim()
+        .replace(/\s+/g, " ");
+    const cpf = normalizarDocumento(
+        document.getElementById("manualCpfParticipante")?.value || ""
+    );
+    const email = String(document.getElementById("manualEmailParticipante")?.value || "")
+        .trim();
+
+    if (!atividade) {
+        alert("Selecione o dia e a atividade.");
+        return;
+    }
+    if (!nome) {
+        alert("Informe o nome completo.");
+        return;
+    }
+    if (!validarCpf(cpf)) {
+        alert("Informe um CPF válido. Ele é necessário para evitar duplicidade e permitir futura reconciliação com o Even3.");
+        return;
+    }
+
+    definirStatusManualParticipante("Verificando se a pessoa já está vinculada à atividade...");
+
+    let novoInscrito = null;
+    let presencaCriada = false;
+
+    try {
+        const existentes = await buscarTodosEmLotes(
+            "inscritos?evento_id=eq." + encodeURIComponent(atividade.id) +
+            "&select=id,nome,numero_inscricao,documento,even3_participante_id"
+        );
+
+        const mesmoCpf = existentes.find(item =>
+            normalizarDocumento(item.documento) === cpf
+        );
+
+        if (mesmoCpf) {
+            definirStatusManualParticipante(
+                "Não foi criado novo cadastro: este CPF já está vinculado à atividade como " +
+                mesmoCpf.nome + " (inscrição " + mesmoCpf.numero_inscricao + ").",
+                "erro"
+            );
+            return;
+        }
+
+        const mesmoNome = existentes.find(item =>
+            normalizarTexto(item.nome) === normalizarTexto(nome)
+        );
+
+        if (mesmoNome) {
+            const continuar = confirm(
+                'Já existe uma pessoa chamada "' + mesmoNome.nome +
+                '" nesta atividade, inscrição ' + mesmoNome.numero_inscricao +
+                ".\n\nDeseja continuar mesmo assim com o cadastro manual?"
+            );
+            if (!continuar) {
+                definirStatusManualParticipante("Cadastro manual cancelado.");
+                return;
+            }
+        }
+
+        const numeroManual = gerarNumeroInscricaoManual();
+        const resInscrito = await fetch(SUPABASE_URL + "/rest/v1/inscritos", {
+            method: "POST",
+            headers: headers({
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            }),
+            body: JSON.stringify({
+                evento_id: atividade.id,
+                nome: nome,
+                numero_inscricao: numeroManual,
+                documento: cpf,
+                email: email || null,
+                inscricao_evento: "CADASTRO MANUAL ADMIN"
+            })
+        });
+
+        if (!resInscrito.ok) throw new Error(await resInscrito.text());
+
+        novoInscrito = (await resInscrito.json())[0];
+        if (!novoInscrito?.id) throw new Error("O cadastro foi enviado, mas o ID do participante não retornou.");
+
+        const resPresenca = await fetch(SUPABASE_URL + "/rest/v1/presencas", {
+            method: "POST",
+            headers: headers({
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            }),
+            body: JSON.stringify({
+                evento_id: atividade.id,
+                inscrito_id: novoInscrito.id,
+                numero_inscricao: numeroManual,
+                metodo: "manual_admin"
+            })
+        });
+
+        if (!resPresenca.ok) throw new Error("Falha ao registrar presença: " + await resPresenca.text());
+        presencaCriada = true;
+
+        const resMov = await fetch(SUPABASE_URL + "/rest/v1/movimentacoes_presenca", {
+            method: "POST",
+            headers: headers({
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            }),
+            body: JSON.stringify({
+                evento_id: atividade.id,
+                inscrito_id: novoInscrito.id,
+                numero_inscricao: numeroManual,
+                tipo_movimento: "entrada"
+            })
+        });
+
+        if (!resMov.ok) throw new Error("Falha ao registrar entrada: " + await resMov.text());
+
+        definirStatusManualParticipante(
+            "Cadastro excepcional concluído.\n" +
+            "Participante: " + nome + "\n" +
+            "Atividade: " + atividade.nome + "\n" +
+            "Código local: " + numeroManual + "\n" +
+            "Presença e entrada registradas pelo painel administrativo.",
+            "ok"
+        );
+
+        document.getElementById("manualNomeParticipante").value = "";
+        document.getElementById("manualCpfParticipante").value = "";
+        document.getElementById("manualEmailParticipante").value = "";
+
+        await atualizarResumoGeralAdmin();
+
+    } catch (erro) {
+        console.error("Erro no cadastro manual excepcional:", erro);
+
+        if (novoInscrito?.id) {
+            if (presencaCriada) {
+                await fetch(
+                    SUPABASE_URL + "/rest/v1/presencas?evento_id=eq." + encodeURIComponent(atividade.id) +
+                    "&inscrito_id=eq." + encodeURIComponent(novoInscrito.id),
+                    { method: "DELETE", headers: headers() }
+                ).catch(() => {});
+            }
+
+            await fetch(
+                SUPABASE_URL + "/rest/v1/movimentacoes_presenca?evento_id=eq." + encodeURIComponent(atividade.id) +
+                "&inscrito_id=eq." + encodeURIComponent(novoInscrito.id),
+                { method: "DELETE", headers: headers() }
+            ).catch(() => {});
+
+            await fetch(
+                SUPABASE_URL + "/rest/v1/inscritos?id=eq." + encodeURIComponent(novoInscrito.id),
+                { method: "DELETE", headers: headers() }
+            ).catch(() => {});
+        }
+
+        definirStatusManualParticipante(
+            "Não foi possível concluir o cadastro manual: " + erro.message,
+            "erro"
+        );
+    }
+}
+
+function limparAjusteParticipante() {
+    const select = document.getElementById("ajusteParticipanteInscrito");
+    if (select) select.innerHTML = '<option value="">Selecione o participante</option>';
+    const info = document.getElementById("ajusteParticipanteInfo");
+    if (info) info.textContent = "Selecione dia, atividade e participante.";
+}
+
+async function carregarParticipantesAjuste() {
+    limparAjusteParticipante();
+    const atividade = obterAtividadeAdmin("ajusteParticipanteAtividade");
+    if (!atividade) return;
+
+    const select = document.getElementById("ajusteParticipanteInscrito");
+    select.innerHTML = '<option value="">Carregando participantes...</option>';
+
+    try {
+        const inscritos = await buscarTodosEmLotes(
+            "inscritos?evento_id=eq." + encodeURIComponent(atividade.id) +
+            "&select=id,nome,numero_inscricao&order=nome.asc"
+        );
+
+        select.innerHTML = '<option value="">Selecione o participante</option>';
+        inscritos.forEach(item => {
+            const option = document.createElement("option");
+            option.value = item.id;
+            option.dataset.nome = item.nome || "";
+            option.dataset.numero = item.numero_inscricao || "";
+            option.textContent = (item.nome || "Sem nome") + " — " + (item.numero_inscricao || "sem inscrição");
+            select.appendChild(option);
+        });
+
+        if (!inscritos.length) {
+            select.innerHTML = '<option value="">Nenhum participante cadastrado</option>';
+        }
+    } catch (erro) {
+        console.error("Erro ao carregar participantes para ajuste:", erro);
+        select.innerHTML = '<option value="">Erro ao carregar participantes</option>';
+    }
+}
+
+async function obterUltimaMovimentacao(eventoId, inscritoId) {
+    const res = await fetch(
+        SUPABASE_URL + "/rest/v1/movimentacoes_presenca?evento_id=eq." + encodeURIComponent(eventoId) +
+        "&inscrito_id=eq." + encodeURIComponent(inscritoId) +
+        "&select=id,tipo_movimento,horario&order=horario.desc&limit=1",
+        { headers: headers() }
+    );
+
+    if (!res.ok) throw new Error(await res.text());
+    return (await res.json())[0] || null;
+}
+
+async function carregarInfoUltimaLeituraParticipante() {
+    const atividade = obterAtividadeAdmin("ajusteParticipanteAtividade");
+    const select = document.getElementById("ajusteParticipanteInscrito");
+    const info = document.getElementById("ajusteParticipanteInfo");
+
+    if (!atividade || !select?.value) {
+        info.textContent = "Selecione dia, atividade e participante.";
+        return;
+    }
+
+    info.textContent = "Buscando última leitura...";
+
+    try {
+        const ultima = await obterUltimaMovimentacao(atividade.id, select.value);
+        const nome = select.options[select.selectedIndex]?.dataset.nome || "Participante";
+
+        if (!ultima) {
+            info.textContent = nome + ": nenhuma movimentação registrada nesta atividade.";
+            return;
+        }
+
+        info.textContent =
+            nome + " — última leitura: " + formatarMovimento(ultima.tipo_movimento) + " em " +
+            (ultima.horario ? new Date(ultima.horario).toLocaleString("pt-BR") : "horário não disponível") + ".";
+    } catch (erro) {
+        info.textContent = "Não foi possível consultar a última leitura.";
+        console.error(erro);
+    }
+}
+
+async function excluirUltimaLeituraParticipante() {
+    const atividade = obterAtividadeAdmin("ajusteParticipanteAtividade");
+    const select = document.getElementById("ajusteParticipanteInscrito");
+
+    if (!atividade || !select?.value) {
+        alert("Selecione dia, atividade e participante.");
+        return;
+    }
+
+    const inscritoId = select.value;
+    const nome = select.options[select.selectedIndex]?.dataset.nome || "Participante";
+
+    try {
+        const ultima = await obterUltimaMovimentacao(atividade.id, inscritoId);
+        if (!ultima) {
+            alert("Este participante não possui movimentações nesta atividade.");
+            return;
+        }
+
+        const horario = ultima.horario
+            ? new Date(ultima.horario).toLocaleString("pt-BR")
+            : "horário não disponível";
+
+        if (!autenticarZonaRisco(
+            "excluir a última leitura de " + nome + ": " +
+            formatarMovimento(ultima.tipo_movimento) + " em " + horario
+        )) return;
+
+        if (!confirm(
+            "Excluir SOMENTE esta última leitura?\n\n" +
+            nome + "\n" + atividade.nome + "\n" +
+            formatarMovimento(ultima.tipo_movimento) + " — " + horario
+        )) return;
+
+        const resDel = await fetch(
+            SUPABASE_URL + "/rest/v1/movimentacoes_presenca?id=eq." + encodeURIComponent(ultima.id),
+            { method: "DELETE", headers: headers() }
+        );
+        if (!resDel.ok) throw new Error(await resDel.text());
+
+        const restantes = await buscarTodosEmLotes(
+            "movimentacoes_presenca?evento_id=eq." + encodeURIComponent(atividade.id) +
+            "&inscrito_id=eq." + encodeURIComponent(inscritoId) + "&select=id"
+        );
+
+        if (!restantes.length) {
+            const resPresenca = await fetch(
+                SUPABASE_URL + "/rest/v1/presencas?evento_id=eq." + encodeURIComponent(atividade.id) +
+                "&inscrito_id=eq." + encodeURIComponent(inscritoId),
+                { method: "DELETE", headers: headers() }
+            );
+            if (!resPresenca.ok) throw new Error(await resPresenca.text());
+        }
+
+        alert(
+            restantes.length
+                ? "Última leitura removida. As leituras anteriores e a presença foram preservadas."
+                : "Última leitura removida. Como não restou nenhuma movimentação, a presença também foi removida."
+        );
+
+        await carregarInfoUltimaLeituraParticipante();
+        await atualizarResumoGeralAdmin();
+
+    } catch (erro) {
+        console.error("Erro ao corrigir leitura do participante:", erro);
+        alert("Não foi possível excluir a leitura:\n" + erro.message);
+    }
+}
+
+async function carregarColaboradoresAjuste() {
+    const select = document.getElementById("ajusteColaboradorSelect");
+    const info = document.getElementById("ajusteColaboradorInfo");
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Carregando colaboradores...</option>';
+    if (info) info.textContent = "Selecione um colaborador.";
+
+    try {
+        const evento = await obterEventoColaboradores(false);
+        if (!evento) {
+            select.innerHTML = '<option value="">Nenhum colaborador importado</option>';
+            return;
+        }
+
+        const colaboradores = await buscarTodosEmLotes(
+            "inscritos?evento_id=eq." + encodeURIComponent(evento.id) +
+            "&select=id,nome,numero_inscricao&order=nome.asc"
+        );
+
+        select.innerHTML = '<option value="">Selecione o colaborador</option>';
+        colaboradores.forEach(item => {
+            const option = document.createElement("option");
+            option.value = item.id;
+            option.dataset.nome = item.nome || "";
+            option.textContent = (item.nome || "Sem nome") + " — " + formatarCpf(item.numero_inscricao || "");
+            select.appendChild(option);
+        });
+
+        if (!colaboradores.length) {
+            select.innerHTML = '<option value="">Nenhum colaborador importado</option>';
+        }
+    } catch (erro) {
+        console.error("Erro ao carregar colaboradores para ajuste:", erro);
+        select.innerHTML = '<option value="">Erro ao carregar colaboradores</option>';
+    }
+}
+
+async function carregarInfoUltimaLeituraColaborador() {
+    const select = document.getElementById("ajusteColaboradorSelect");
+    const info = document.getElementById("ajusteColaboradorInfo");
+
+    if (!select?.value) {
+        info.textContent = "Selecione um colaborador.";
+        return;
+    }
+
+    try {
+        const evento = await obterEventoColaboradores(false);
+        if (!evento) throw new Error("Evento interno de colaboradores não encontrado.");
+
+        const ultima = await obterUltimaMovimentacao(evento.id, select.value);
+        const nome = select.options[select.selectedIndex]?.dataset.nome || "Colaborador";
+
+        if (!ultima) {
+            info.textContent = nome + ": nenhuma entrada ou saída registrada.";
+            return;
+        }
+
+        info.textContent =
+            nome + " — última leitura: " + formatarMovimento(ultima.tipo_movimento) + " em " +
+            (ultima.horario ? new Date(ultima.horario).toLocaleString("pt-BR") : "horário não disponível") + ".";
+    } catch (erro) {
+        info.textContent = "Não foi possível consultar a última leitura.";
+        console.error(erro);
+    }
+}
+
+async function excluirUltimaLeituraColaborador() {
+    const select = document.getElementById("ajusteColaboradorSelect");
+    if (!select?.value) {
+        alert("Selecione um colaborador.");
+        return;
+    }
+
+    try {
+        const evento = await obterEventoColaboradores(false);
+        if (!evento) throw new Error("Evento interno de colaboradores não encontrado.");
+
+        const ultima = await obterUltimaMovimentacao(evento.id, select.value);
+        if (!ultima) {
+            alert("Este colaborador não possui movimentações registradas.");
+            return;
+        }
+
+        const nome = select.options[select.selectedIndex]?.dataset.nome || "Colaborador";
+        const horario = ultima.horario
+            ? new Date(ultima.horario).toLocaleString("pt-BR")
+            : "horário não disponível";
+
+        if (!autenticarZonaRisco(
+            "excluir a última leitura do colaborador " + nome + ": " +
+            formatarMovimento(ultima.tipo_movimento) + " em " + horario
+        )) return;
+
+        if (!confirm(
+            "Excluir SOMENTE esta última leitura?\n\n" +
+            nome + "\n" + formatarMovimento(ultima.tipo_movimento) + " — " + horario
+        )) return;
+
+        const resDel = await fetch(
+            SUPABASE_URL + "/rest/v1/movimentacoes_presenca?id=eq." + encodeURIComponent(ultima.id),
+            { method: "DELETE", headers: headers() }
+        );
+        if (!resDel.ok) throw new Error(await resDel.text());
+
+        alert("Última leitura do colaborador removida com sucesso.");
+        await carregarInfoUltimaLeituraColaborador();
+        await carregarPainelColaboradores();
+        await atualizarResumoGeralAdmin();
+
+    } catch (erro) {
+        console.error("Erro ao corrigir leitura do colaborador:", erro);
+        alert("Não foi possível excluir a leitura:\n" + erro.message);
+    }
+}
+
+async function prepararZonaRisco() {
+    preencherDatasAdmin("ajusteParticipanteData");
+    preencherAtividadesFiltradasAdmin("ajusteParticipanteData", "ajusteParticipanteAtividade");
+    limparAjusteParticipante();
+    await carregarColaboradoresAjuste();
+}
+
 async function limparEventoAtual() {
     const atividade = obterAtividadeAdmin("adminRiscoEventoSelect");
 
@@ -3898,18 +4527,19 @@ async function resetCompleto() {
 
     alert("RESET COMPLETO realizado.");
 
-    document.getElementById("listaPresencas").innerHTML = "";
-    document.getElementById("listaMovimentacoes").innerHTML = "";
-    document.getElementById("totalPresencas").innerText = "Presenças: 0";
-    document.getElementById("eventoSelect").innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
     EVENTO_ID = "";
     EVENTO_NOME = "";
     EVENTOS_DISPONIVEIS = [];
+
     preencherSeletoresAdmin();
-    limparTelaEvento();
     resetarPainelColaboradores();
     definirResultadoColaborador("", "");
-    atualizarResumoGeralAdmin();
+
+    const manualStatus = document.getElementById("manualParticipanteStatus");
+    if (manualStatus) manualStatus.style.display = "none";
+
+    await carregarEventos().catch(() => {});
+    await atualizarResumoGeralAdmin();
 }
 
 
