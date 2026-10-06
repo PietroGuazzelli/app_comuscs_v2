@@ -1,0 +1,3535 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COMUSCS — App Operacional</title>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<style>
+/* Interface 2026-08-15.2 — importação incremental do Even3 */
+:root {
+    --navy-950: #071a2e;
+    --navy-900: #0a2744;
+    --blue-800: #0d477d;
+    --blue-700: #1262a3;
+    --blue-600: #1976bd;
+    --blue-100: #dceefe;
+    --blue-50: #eff7ff;
+    --orange-600: #e85d0f;
+    --orange-500: #f47721;
+    --orange-100: #ffeadc;
+    --ink-900: #132238;
+    --ink-700: #405269;
+    --ink-500: #718096;
+    --line: #dce5ef;
+    --surface: #fff;
+    --canvas: #f3f7fb;
+    --success: #16835b;
+    --success-soft: #e7f7f0;
+    --warning: #a85d00;
+    --warning-soft: #fff4df;
+    --danger: #c83a43;
+    --danger-soft: #fff0f1;
+    --shadow-sm: 0 1px 3px rgba(7, 26, 46, .08);
+    --shadow-md: 0 14px 36px rgba(7, 26, 46, .11);
+    --radius-sm: 10px;
+    --radius-md: 16px;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    color: var(--ink-900);
+    background: var(--canvas);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    text-align: left;
+    transition: background-color .25s ease;
+}
+
+body.admin-open { overflow: hidden; }
+
+.page-wrapper {
+    width: min(960px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 28px 0 44px;
+}
+
+.hero {
+    position: relative;
+    min-height: 250px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    color: #fff;
+    background:
+        linear-gradient(105deg, rgba(7, 26, 46, .82), rgba(13, 71, 125, .68) 58%, rgba(18, 98, 163, .42)),
+        url("./IMAGEM EVEN3 OFICIAL.jpeg") center/cover no-repeat;
+}
+
+.hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 82% 20%, rgba(244, 119, 33, .37), transparent 24%);
+    pointer-events: none;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+    width: min(960px, calc(100% - 32px));
+    max-width: none;
+    margin: 0 auto;
+    padding: 38px 0 42px;
+}
+
+.brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+}
+
+.hero-title {
+    margin: 20px 0 0;
+    font-size: clamp(38px, 8vw, 70px);
+    font-weight: 850;
+    line-height: .98;
+    letter-spacing: -.045em;
+}
+
+.hero-kicker {
+    max-width: 650px;
+    margin: 12px 0 0;
+    color: rgba(255,255,255,.82);
+    font-size: clamp(13px, 2vw, 17px);
+    font-weight: 550;
+    line-height: 1.5;
+}
+
+.hero-date {
+    margin: 20px 0 0;
+    padding: 8px 14px;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 999px;
+    background: rgba(255,255,255,.12);
+    font-size: 14px;
+    font-weight: 750;
+    backdrop-filter: blur(10px);
+}
+
+h1, h2, h3, h4, p { margin-top: 0; }
+h2 { margin-bottom: 6px; font-size: clamp(25px, 4vw, 34px); line-height: 1.15; letter-spacing: -.025em; }
+h3 { margin-bottom: 6px; font-size: 19px; }
+h4 { margin-bottom: 8px; font-size: 16px; }
+
+.eyebrow {
+    margin: 0 0 6px;
+    color: var(--orange-600);
+    font-size: 12px;
+    font-weight: 850;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.muted { color: var(--ink-700); line-height: 1.55; }
+.mt-14 { margin-top: 14px; }
+.mt-18 { margin-top: 18px; }
+.initially-hidden { display: none; }
+
+.section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.operation-badge {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 11px;
+    color: var(--orange-600);
+    border: 1px solid #ffd1b4;
+    border-radius: 999px;
+    background: var(--orange-100);
+    font-size: 11px;
+    font-weight: 850;
+    white-space: nowrap;
+}
+
+.card, .dashboard {
+    margin: 0 0 18px;
+    padding: 22px;
+    max-width: none;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.scanner-card { position: relative; overflow: hidden; }
+.scanner-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--blue-700), var(--orange-500));
+}
+
+.flow-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 0 0 22px;
+}
+
+.flow-step {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-700);
+    background: var(--blue-50);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.flow-step span {
+    flex: 0 0 auto;
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    background: var(--blue-700);
+    font-size: 12px;
+}
+
+.field-group { text-align: left; }
+
+label {
+    display: inline-block;
+    margin: 0 0 7px;
+    color: var(--ink-900);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+button, select, input { min-height: 46px; margin: 0; border-radius: var(--radius-sm); font: inherit; }
+
+select, input {
+    width: 100%;
+    padding: 11px 13px;
+    color: var(--ink-900);
+    border: 1px solid #cbd8e5;
+    background: #fff;
+    outline: none;
+    transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+select:focus, input:focus { border-color: var(--blue-600); box-shadow: 0 0 0 4px rgba(25,118,189,.12); }
+
+input[type="file"] { height: auto; padding: 7px; color: var(--ink-700); background: var(--blue-50); }
+input[type="file"]::file-selector-button {
+    margin-right: 10px;
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 8px;
+    color: var(--blue-800);
+    background: var(--blue-100);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 16px;
+    color: #fff;
+    border: 1px solid transparent;
+    background: var(--blue-700);
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+button:hover { background: var(--blue-800); box-shadow: 0 8px 20px rgba(13,71,125,.18); }
+button:active { transform: translateY(1px); }
+button:focus-visible, .admin-nav-button:focus-visible { outline: 3px solid rgba(244,119,33,.32); outline-offset: 2px; }
+
+.button-primary { background: var(--orange-500); }
+.button-primary:hover { background: var(--orange-600); box-shadow: 0 8px 20px rgba(232,93,15,.22); }
+.button-secondary { color: var(--blue-800); border-color: var(--line); background: #fff; }
+.button-secondary:hover { color: var(--blue-800); background: var(--blue-50); }
+.button-warning { color: #6a3900; border-color: #f5c77b; background: #ffd991; }
+.button-warning:hover { background: #ffcd70; }
+.button-danger { background: var(--danger); }
+.button-danger:hover { background: #a92932; }
+
+.button-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.button-row button { margin: 0; }
+.camera-actions button { flex: 1 1 190px; }
+
+.reader-shell {
+    margin-top: 18px;
+    padding: 12px;
+    border: 1px dashed #b8cbe0;
+    border-radius: var(--radius-md);
+    background: linear-gradient(145deg, #f8fbff, #eef5fb);
+}
+
+#reader {
+    position: relative;
+    width: min(420px, 100%);
+    min-height: 220px;
+    margin: auto;
+    overflow: hidden;
+    border: 0 !important;
+    border-radius: 12px;
+    background: #111b26;
+}
+
+#cameraVideo {
+    display: none;
+    width: 100%;
+    height: auto;
+    min-height: 220px;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #111b26;
+}
+
+#reader.camera-active #cameraVideo { display: block; }
+
+.camera-placeholder {
+    display: grid;
+    min-height: 220px;
+    padding: 36px 16px;
+    place-items: center;
+    color: var(--ink-500);
+    background: linear-gradient(145deg, #f8fbff, #eef5fb);
+    font-size: 13px;
+    text-align: center;
+}
+
+#reader.camera-active .camera-placeholder { display: none; }
+
+.camera-overlay {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    display: none;
+    place-items: center;
+    pointer-events: none;
+}
+
+#reader.camera-active .camera-overlay { display: grid; }
+
+.camera-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(7, 26, 46, .20);
+}
+
+.camera-scan-frame {
+    position: relative;
+    z-index: 1;
+    width: min(72%, 280px);
+    aspect-ratio: 1;
+    background:
+        linear-gradient(#fff, #fff) left top / 42px 5px no-repeat,
+        linear-gradient(#fff, #fff) left top / 5px 42px no-repeat,
+        linear-gradient(#fff, #fff) right top / 42px 5px no-repeat,
+        linear-gradient(#fff, #fff) right top / 5px 42px no-repeat,
+        linear-gradient(#fff, #fff) left bottom / 42px 5px no-repeat,
+        linear-gradient(#fff, #fff) left bottom / 5px 42px no-repeat,
+        linear-gradient(#fff, #fff) right bottom / 42px 5px no-repeat,
+        linear-gradient(#fff, #fff) right bottom / 5px 42px no-repeat;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.35));
+}
+
+#qrCanvas { display: none; }
+
+.result {
+    display: grid;
+    min-height: 64px;
+    margin: 14px 0 0;
+    padding: 14px 16px;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    color: var(--ink-700);
+    background: #f8fafc;
+    font-size: 17px;
+    text-align: center;
+}
+
+.result:empty::before { content: "Pronto para ler um QR Code"; color: var(--ink-500); font-size: 14px; font-weight: 650; }
+.ok { color: var(--success); font-weight: 850; }
+.erro { color: var(--danger); font-weight: 850; }
+.aviso { color: var(--warning); font-weight: 850; }
+body.ok-bg { background-color: var(--success-soft); }
+body.erro-bg { background-color: var(--danger-soft); }
+body.aviso-bg { background-color: var(--warning-soft); }
+body.ok-bg .scanner-card { box-shadow: 0 0 0 3px rgba(22,131,91,.15), var(--shadow-md); }
+body.erro-bg .scanner-card { box-shadow: 0 0 0 3px rgba(200,58,67,.15), var(--shadow-md); }
+body.aviso-bg .scanner-card { box-shadow: 0 0 0 3px rgba(168,93,0,.15), var(--shadow-md); }
+#resultado { transition: opacity .3s; }
+
+.dashboard-header, .records-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.dashboard-header { margin-bottom: 16px; }
+.dashboard-header h3, .dashboard-header p, .records-header h3, .records-header p { margin: 0; }
+.dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0; }
+
+.dashboard-card {
+    min-width: 0;
+    padding: 15px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: #fff;
+}
+
+.dashboard-card::before {
+    content: "";
+    display: block;
+    width: 26px;
+    height: 3px;
+    margin-bottom: 12px;
+    border-radius: 999px;
+    background: var(--orange-500);
+}
+
+.dashboard-card span {
+    display: block;
+    overflow: hidden;
+    color: var(--ink-700);
+    font-size: 12px;
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-card strong { display: block; margin-top: 4px; color: var(--blue-800); font-size: 29px; line-height: 1; }
+.dashboard-footer { display: flex; justify-content: flex-end; margin-top: 14px; }
+
+.records-card { padding: 0; overflow: hidden; }
+.records-header { padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.records-count { padding: 6px 10px; border-radius: 999px; color: var(--blue-800); background: var(--blue-100); font-size: 12px; font-weight: 850; white-space: nowrap; }
+.table-wrap { width: 100%; overflow-x: auto; }
+
+table { width: 100%; margin: 0; border-collapse: collapse; font-size: 13px; text-align: left; }
+th, td { padding: 12px 16px; border: 0; border-bottom: 1px solid #e9eff5; }
+th { color: var(--ink-700); background: #f8fafc; font-size: 11px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--blue-50); }
+
+.admin-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 26px;
+    padding: 18px 20px;
+    color: #fff;
+    border-radius: var(--radius-md);
+    background: linear-gradient(110deg, var(--navy-900), var(--blue-800));
+    box-shadow: var(--shadow-md);
+}
+
+.admin-entry h3, .admin-entry p { margin: 0; }
+.admin-entry p { margin-top: 4px; color: rgba(255,255,255,.72); font-size: 13px; }
+.admin-entry button { flex: 0 0 auto; background: var(--orange-500); }
+
+.admin-shell {
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    display: none;
+    background: rgba(7,26,46,.68);
+    backdrop-filter: blur(4px);
+}
+
+.admin-layout {
+    position: relative;
+    display: flex;
+    width: min(1220px, 100%);
+    height: min(820px, 100%);
+    margin: auto;
+    overflow: hidden;
+    background: var(--canvas);
+    box-shadow: 0 25px 80px rgba(7,26,46,.35);
+}
+
+.admin-sidebar {
+    z-index: 3;
+    flex: 0 0 264px;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 18px 18px;
+    color: #fff;
+    background: var(--navy-950);
+}
+
+.admin-brand { display: flex; align-items: center; min-height: 48px; padding: 0 8px 22px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.admin-brand strong, .admin-brand small { display: block; }
+.admin-brand small { margin-top: 2px; color: rgba(255,255,255,.58); font-size: 11px; }
+.admin-nav { display: grid; gap: 7px; margin-top: 20px; }
+
+.admin-nav-button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: flex-start;
+    padding: 10px 12px;
+    color: rgba(255,255,255,.7);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
+}
+
+.admin-nav-button > span {
+    display: inline-grid;
+    flex: 0 0 25px;
+    width: 25px;
+    height: 25px;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(255,255,255,.08);
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.admin-nav-button:hover { color: #fff; background: rgba(255,255,255,.08); box-shadow: none; }
+.admin-nav-button.is-active { color: #fff; background: var(--blue-700); box-shadow: inset 3px 0 0 var(--orange-500); }
+.admin-nav-button.is-danger { margin-top: 10px; color: #ffb5ba; }
+.admin-version { margin-top: auto; padding: 14px 10px 4px; color: rgba(255,255,255,.55); font-size: 11px; line-height: 1.5; }
+.admin-version strong { display: block; color: #fff; }
+
+.admin-content { flex: 1 1 auto; min-width: 0; overflow-y: auto; }
+.admin-topbar {
+    position: sticky;
+    z-index: 2;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 74px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,.94);
+    backdrop-filter: blur(12px);
+}
+
+.admin-topbar-title { min-width: 0; margin-right: auto; }
+.admin-topbar-title strong, .admin-topbar-title small { display: block; }
+.admin-topbar-title small { margin-top: 2px; overflow: hidden; color: var(--ink-500); text-overflow: ellipsis; white-space: nowrap; }
+.admin-icon-button { flex: 0 0 auto; width: 42px; min-height: 42px; padding: 0; color: var(--ink-700); border-color: var(--line); background: #fff; font-size: 20px; }
+.admin-menu-toggle { display: none; }
+
+.admin-section { display: none; padding: 26px; }
+.admin-section.is-active { display: block; animation: sectionIn .2s ease; }
+@keyframes sectionIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.admin-section-heading { margin-bottom: 20px; }
+.admin-section-heading p { max-width: 720px; margin: 5px 0 0; color: var(--ink-700); line-height: 1.55; }
+.admin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.admin-card { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #fff; box-shadow: var(--shadow-sm); }
+.admin-card p:last-child { margin-bottom: 0; }
+.admin-card-full { grid-column: 1 / -1; }
+.admin-stat strong { display: block; margin-top: 8px; color: var(--blue-800); font-size: 30px; }
+.admin-action-card { display: flex; flex-direction: column; }
+.admin-action-card .button-row { margin-top: auto; padding-top: 12px; }
+.admin-callout { padding: 14px 16px; border-left: 4px solid var(--orange-500); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--ink-700); background: var(--orange-100); line-height: 1.55; }
+.danger-card { border-color: #f0c5c8; background: #fffafa; }
+.danger-card h4 { color: var(--danger); }
+.import-status { max-width: none; margin: 14px 0 0; padding: 13px 15px; border-radius: var(--radius-sm); color: var(--blue-800); background: var(--blue-50); text-align: left; white-space: pre-line; }
+.collaborator-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0 0; }
+.collaborator-stat { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--blue-50); }
+.collaborator-stat span { display: block; overflow: hidden; color: var(--ink-700); font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.collaborator-stat strong { display: block; margin-top: 5px; color: var(--blue-800); font-size: 25px; line-height: 1; }
+.collaborator-result { min-height: 72px; margin-top: 16px; }
+.collaborator-result:empty::before { content: "Digite o CPF para registrar a presença"; }
+.collaborator-result.is-ok { color: var(--success); border-color: #b8dfcf; background: var(--success-soft); font-weight: 850; }
+.collaborator-result.is-error { color: var(--danger); border-color: #efc1c5; background: var(--danger-soft); font-weight: 850; }
+.collaborator-result.is-warning { color: var(--warning); border-color: #f2d39d; background: var(--warning-soft); font-weight: 850; }
+.collaborator-validation-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.collaborator-validation-row button { min-width: 185px; }
+.admin-sidebar-scrim { display: none; }
+
+@media (max-width: 820px) {
+    .admin-layout { height: 100%; }
+    .admin-sidebar { position: absolute; inset: 0 auto 0 0; width: min(286px, 84vw); transform: translateX(-105%); transition: transform .24s ease; }
+    .admin-sidebar.is-open { transform: translateX(0); }
+    .admin-sidebar-scrim { position: absolute; z-index: 2; inset: 0; background: rgba(7,26,46,.5); }
+    .admin-sidebar-scrim.is-visible { display: block; }
+    .admin-menu-toggle { display: inline-flex; }
+    .admin-section { padding: 20px 16px 32px; }
+    .admin-grid { grid-template-columns: 1fr; }
+    .admin-card-full { grid-column: auto; }
+    .collaborator-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+    .hero { min-height: 220px; }
+    .hero-content, .page-wrapper { width: min(100% - 24px, 960px); }
+    .hero-content { padding: 28px 0 32px; }
+    .page-wrapper { padding: 18px 0 30px; }
+    .hero-title { margin-top: 16px; }
+    .hero-kicker { font-size: 12px; }
+    .card, .dashboard { padding: 17px; border-radius: 14px; }
+    .section-heading { align-items: flex-start; margin-bottom: 18px; }
+    .operation-badge { padding: 7px 9px; font-size: 10px; }
+    .flow-steps { grid-template-columns: 1fr; gap: 7px; }
+    .flow-step { padding: 8px 10px; }
+    .button-row { display: grid; grid-template-columns: 1fr; }
+    .button-row button, .dashboard-footer button { width: 100%; }
+    .dashboard-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+    .dashboard-card { padding: 13px; }
+    .dashboard-card strong { font-size: 25px; }
+    .dashboard-footer { display: block; }
+    .records-header { align-items: flex-start; padding: 16px; }
+    th, td { min-width: 118px; padding: 11px 13px; }
+    th:first-child, td:first-child { min-width: 180px; }
+    .admin-entry { align-items: stretch; flex-direction: column; }
+    .admin-entry button { width: 100%; }
+    .admin-topbar { min-height: 66px; padding: 11px 12px; }
+    .admin-topbar-title strong { font-size: 14px; }
+    .admin-topbar-title small { max-width: 190px; font-size: 11px; }
+    .collaborator-validation-row { grid-template-columns: 1fr; }
+    .collaborator-validation-row button { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+
+<body>
+
+<section class="hero" aria-label="Capa do congresso COMUSCS">
+  <div class="hero-content">
+    <div class="brand-lockup">
+      <span>COMUSCS 2026</span>
+    </div>
+    <h1 class="hero-title">PRÉ COMUSCS</h1>
+    <p class="hero-kicker"></p>
+    <p class="hero-date">15 de agosto de 2026</p>
+  </div>
+</section>
+
+<main class="page-wrapper">
+  <section class="card scanner-card" aria-labelledby="checkinTitle">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">App Operacional · Leitura operacional</p>
+        <h2 id="checkinTitle">Check-in por QR Code</h2>
+        <p class="muted">Selecione a atividade e faça a leitura do código do participante.</p>
+      </div>
+      <span class="operation-badge">● Modo leitura</span>
+    </div>
+
+    <div class="flow-steps" role="group" aria-label="Etapas da leitura">
+      <div class="flow-step"><span>1</span> Selecionar atividade</div>
+      <div class="flow-step"><span>2</span> Ativar câmera</div>
+      <div class="flow-step"><span>3</span> Ler o QR Code</div>
+    </div>
+
+    <div class="field-group">
+      <label for="eventoSelect">Atividade do momento</label>
+      <select id="eventoSelect" onchange="trocarEvento()">
+        <option value="">Carregando atividades...</option>
+      </select>
+    </div>
+
+    <div class="button-row camera-actions">
+      <button type="button" id="btnCamera" class="button-primary" onclick="toggleCamera()">Ativar câmera</button>
+      <button type="button" id="btnTrocarCamera" class="button-secondary initially-hidden" onclick="trocarCamera()">Alternar câmera</button>
+    </div>
+
+    <div class="reader-shell">
+      <div id="reader">
+        <video id="cameraVideo" autoplay muted playsinline webkit-playsinline aria-label="Visualização da câmera"></video>
+        <div class="camera-placeholder">A visualização da câmera aparecerá aqui</div>
+        <div class="camera-overlay" aria-hidden="true"><div class="camera-scan-frame"></div></div>
+        <canvas id="qrCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="result" id="resultado" role="status" aria-live="polite"></div>
+  </section>
+
+  <section class="dashboard" aria-labelledby="resumoTitle">
+    <div class="dashboard-header">
+      <div>
+        <p class="eyebrow">Acompanhamento</p>
+        <h3 id="resumoTitle">Resumo da atividade</h3>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dashboard-card"><span>Inscritos</span><strong id="dashboardInscritos">0</strong></div>
+      <div class="dashboard-card"><span>Presenças</span><strong id="dashboardPresencas">0</strong></div>
+      <div class="dashboard-card"><span>Pendentes</span><strong id="dashboardPendentes">0</strong></div>
+      <div class="dashboard-card"><span>Fora</span><strong id="dashboardFora">0</strong></div>
+    </div>
+
+    <div class="dashboard-footer">
+      <button type="button" class="button-secondary" onclick="verInscritos()">Ver inscritos importados</button>
+    </div>
+  </section>
+
+<audio id="som-ok" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="som-erro" src="https://actions.google.com/sounds/v1/cartoon/boing.ogg"></audio>
+
+  <section class="card records-card" aria-labelledby="presencasTitle">
+    <div class="records-header">
+      <div>
+        <p class="eyebrow">Credenciamento</p>
+        <h3 id="presencasTitle">Participantes presentes</h3>
+      </div>
+      <span class="records-count" id="totalPresencas">Presenças: 0</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nome</th><th>Nº Inscrição</th><th>Horário</th></tr></thead>
+        <tbody id="listaPresencas"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card records-card" aria-labelledby="movimentacoesTitle">
+    <div class="records-header">
+      <div>
+        <p class="eyebrow">Tempo real</p>
+        <h3 id="movimentacoesTitle">Movimentações recentes</h3>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nome</th><th>Nº Inscrição</th><th>Movimento</th><th>Horário</th></tr></thead>
+        <tbody id="listaMovimentacoes"></tbody>
+      </table>
+    </div>
+  </section>
+
+  
+
+</main>
+
+<script>
+const SUPABASE_URL = "https://goytizsanwooamfjtvqk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Q7seQ6RlNFw1cWuHqgV4qQ_QB42w8Sp";
+
+const NOME_EVENTO_COLABORADORES = "__CONTROLE_COLABORADORES__";
+
+let processando = false;
+let colaboradorProcessando = false;
+let EVENTO_ID = "";
+let EVENTO_NOME = "";
+let EVENTOS_DISPONIVEIS = [];
+
+let cameraAtiva = false;
+let camerasDisponiveis = [];
+let cameraIndexAtual = 0;
+let cameraStream = null;
+let cameraScanFrame = null;
+let ultimoQuadroProcessado = 0;
+let detectorQrNativo = null;
+let decodificacaoEmCurso = false;
+
+function headers(extra = {}) {
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        ...extra
+    };
+}
+
+function autenticarZonaRisco() {
+    throw new Error("Função administrativa indisponível no App Operacional.");
+}
+
+async function abrirAdmin() {
+    throw new Error("Área administrativa removida do App Operacional.");
+}
+
+function fecharAdmin() {
+    document.body.classList.remove("admin-open");
+}
+
+function toggleAdminMenu(forcarAbertura) {
+    const sidebar = document.getElementById("adminSidebar");
+    const scrim = document.getElementById("adminSidebarScrim");
+    if (!sidebar || !scrim) return;
+
+    const abrir = typeof forcarAbertura === "boolean"
+        ? forcarAbertura
+        : !sidebar.classList.contains("is-open");
+
+    sidebar.classList.toggle("is-open", abrir);
+    scrim.classList.toggle("is-visible", abrir);
+}
+
+function trocarSecaoAdmin(secao) {
+    const titulos = {
+        visao: "Visão geral",
+        importacoes: "Importar dados",
+        colaboradores: "Controle de colaboradores",
+        eventos: "Gerenciar eventos",
+        relatorios: "Relatórios",
+        risco: "Zona de risco"
+    };
+
+    document.querySelectorAll(".admin-section").forEach(item => {
+        item.classList.toggle("is-active", item.id === `adminSection-${secao}`);
+    });
+
+    document.querySelectorAll(".admin-nav-button").forEach(botao => {
+        botao.classList.toggle("is-active", botao.dataset.adminSection === secao);
+    });
+
+    const titulo = document.getElementById("adminPanelTitle");
+    if (titulo) titulo.textContent = titulos[secao] || "Área administrativa";
+
+    if (secao === "visao") atualizarResumoGeralAdmin();
+    if (secao === "colaboradores") {
+        carregarPainelColaboradores();
+        setTimeout(() => document.getElementById("cpfColaboradorInput")?.focus(), 80);
+    }
+
+    if (window.innerWidth <= 820) toggleAdminMenu(false);
+}
+
+function atualizarEspelhosAdmin() {
+    if (document.body.classList.contains("admin-open")) atualizarResumoGeralAdmin();
+}
+
+async function atualizarResumoGeralAdmin() {
+    const destinos = {
+        eventos: document.getElementById("adminResumoEventos"),
+        inscritos: document.getElementById("adminResumoInscritos"),
+        presencas: document.getElementById("adminResumoPresencas"),
+        movimentacoes: document.getElementById("adminResumoMovimentacoes")
+    };
+
+    if (!destinos.eventos) return;
+
+    try {
+        const eventoColaboradores = await obterEventoColaboradores(false);
+        const filtroAtividades = eventoColaboradores
+            ? `evento_id=neq.${encodeURIComponent(eventoColaboradores.id)}&`
+            : "";
+        const consultas = [
+            ["eventos", `eventos?nome=neq.${encodeURIComponent(NOME_EVENTO_COLABORADORES)}&select=id`],
+            ["inscritos", `inscritos?${filtroAtividades}select=id`],
+            ["presencas", `presencas?${filtroAtividades}select=id`],
+            ["movimentacoes", `movimentacoes_presenca?${filtroAtividades}select=id`]
+        ];
+
+        const resultados = await Promise.all(consultas.map(async ([chave, caminho]) => {
+            const resposta = await fetch(`${SUPABASE_URL}/rest/v1/${caminho}`, { headers: headers() });
+            if (!resposta.ok) throw new Error(await resposta.text());
+            return [chave, (await resposta.json()).length];
+        }));
+
+        resultados.forEach(([chave, total]) => {
+            if (destinos[chave]) destinos[chave].textContent = total;
+        });
+    } catch (erro) {
+        console.error("Erro ao carregar o resumo administrativo:", erro);
+    }
+}
+
+function preencherSeletoresAdmin() {
+    ["adminCsvEventoSelect", "adminRelatorioEventoSelect", "adminRiscoEventoSelect"].forEach(id => {
+        const select = document.getElementById(id);
+        if (!select) return;
+
+        const valorAnterior = select.value;
+        select.innerHTML = '<option value="">Selecione uma atividade</option>';
+
+        EVENTOS_DISPONIVEIS.forEach(evento => {
+            const option = document.createElement("option");
+            option.value = evento.id;
+            option.dataset.nome = evento.nome;
+            option.textContent = evento.data_evento
+                ? `${evento.nome} - ${evento.data_evento}`
+                : evento.nome;
+            select.appendChild(option);
+        });
+
+        if (valorAnterior && EVENTOS_DISPONIVEIS.some(evento => String(evento.id) === String(valorAnterior))) {
+            select.value = valorAnterior;
+        }
+    });
+}
+
+function obterAtividadeAdmin(selectId) {
+    const select = document.getElementById(selectId);
+    const option = select?.options[select.selectedIndex];
+
+    if (!select?.value) return null;
+
+    return {
+        id: select.value,
+        nome: option?.dataset.nome || option?.textContent || "atividade"
+    };
+}
+
+function tocarSom(tipo) {
+    const som = document.getElementById(tipo === "ok" ? "som-ok" : "som-erro");
+    som.currentTime = 0;
+    som.play().catch(() => {});
+}
+
+function setStatus(tipo) {
+    document.body.classList.remove("ok-bg", "erro-bg", "aviso-bg");
+
+    if (tipo === "ok") document.body.classList.add("ok-bg");
+    if (tipo === "erro") document.body.classList.add("erro-bg");
+    if (tipo === "aviso") document.body.classList.add("aviso-bg");
+}
+
+function resetarLeitura() {
+    setTimeout(() => {
+        document.getElementById("resultado").style.opacity = "0";
+
+        setTimeout(() => {
+            document.getElementById("resultado").innerHTML = "";
+            document.getElementById("resultado").style.opacity = "1";
+            document.body.classList.remove("ok-bg", "erro-bg", "aviso-bg");
+            processando = false;
+        }, 300);
+    }, 2500);
+}
+
+function camerasComIdValido(cameras) {
+    return (Array.isArray(cameras) ? cameras : []).filter(camera =>
+        camera &&
+        (camera.kind === undefined || camera.kind === "videoinput") &&
+        typeof camera.id === "string" &&
+        camera.id.trim() !== ""
+    );
+}
+
+function indiceCameraTraseira(cameras) {
+    return cameras.findIndex(camera =>
+        /back|rear|environment|traseir|traser/i.test(camera.label || "")
+    );
+}
+
+function mensagemErroCamera(erro) {
+    const nome = erro?.name || "";
+    const mensagem = String(erro?.message || erro || "");
+
+    if (!window.isSecureContext) {
+        return "A câmera só pode ser aberta em uma conexão segura. Acesse o aplicativo pelo endereço HTTPS do GitHub Pages.";
+    }
+
+    if (nome === "NotAllowedError" || /permission|permiss[aã]o|denied/i.test(mensagem)) {
+        return "A permissão da câmera foi negada. Autorize a câmera nas configurações do navegador e tente novamente.";
+    }
+
+    if (nome === "NotFoundError" || nome === "DevicesNotFoundError") {
+        return "Nenhuma câmera foi encontrada neste dispositivo.";
+    }
+
+    if (nome === "NotReadableError" || nome === "TrackStartError") {
+        return "Não foi possível usar a câmera. Feche outros aplicativos que estejam usando-a e tente novamente.";
+    }
+
+    if (nome === "OverconstrainedError") {
+        return "A câmera escolhida não está disponível. Tente ativar novamente ou use Alternar câmera.";
+    }
+
+    if (/não produziu imagem|nao produziu imagem/i.test(mensagem)) {
+        return "A câmera foi autorizada, mas não produziu imagem. Feche a página, abra novamente pelo Safari ou Chrome e tente outra vez.";
+    }
+
+    return mensagem || "Não foi possível iniciar a câmera.";
+}
+
+function prepararElementoVideo() {
+    const video = document.getElementById("cameraVideo");
+
+    video.autoplay = true;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("autoplay", "");
+    video.setAttribute("muted", "");
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.setAttribute("disablepictureinpicture", "");
+
+    return video;
+}
+
+async function abrirStreamCamera(cameraId = null) {
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
+        throw new Error("Este navegador não oferece acesso compatível à câmera.");
+    }
+
+    const video = cameraId
+        ? { deviceId: { exact: cameraId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        : { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } };
+
+    try {
+        return await navigator.mediaDevices.getUserMedia({ audio: false, video });
+    } catch (erro) {
+        const podeTentarCameraPadrao = !cameraId &&
+            !["NotAllowedError", "SecurityError", "NotReadableError"].includes(erro?.name || "");
+
+        if (!podeTentarCameraPadrao) throw erro;
+        return navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+    }
+}
+
+function esperarVideoPronto(video, limiteMs = 6000) {
+    if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+        let encerrado = false;
+        let temporizador = null;
+
+        const limpar = () => {
+            ["loadedmetadata", "loadeddata", "canplay", "playing"].forEach(evento =>
+                video.removeEventListener(evento, verificar)
+            );
+            if (temporizador) clearTimeout(temporizador);
+        };
+
+        const verificar = () => {
+            if (encerrado) return;
+            if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+                encerrado = true;
+                limpar();
+                resolve();
+            }
+        };
+
+        ["loadedmetadata", "loadeddata", "canplay", "playing"].forEach(evento =>
+            video.addEventListener(evento, verificar)
+        );
+
+        temporizador = setTimeout(() => {
+            if (encerrado) return;
+            encerrado = true;
+            limpar();
+            reject(new Error("A câmera foi aberta, mas não produziu imagem."));
+        }, limiteMs);
+
+        verificar();
+    });
+}
+
+function prepararDecodificadorQr() {
+    if (typeof window.jsQR === "function") return;
+
+    if ("BarcodeDetector" in window) {
+        try {
+            detectorQrNativo = detectorQrNativo || new BarcodeDetector({ formats: ["qr_code"] });
+            return;
+        } catch (erro) {
+            console.warn("Leitor QR nativo indisponível:", erro);
+        }
+    }
+
+    throw new Error("O leitor de QR Code não foi carregado. Atualize a página e tente novamente.");
+}
+
+async function atualizarListaDeCameras() {
+    try {
+        const dispositivos = await navigator.mediaDevices.enumerateDevices();
+        camerasDisponiveis = camerasComIdValido(
+            dispositivos
+                .filter(dispositivo => dispositivo.kind === "videoinput")
+                .map(dispositivo => ({ id: dispositivo.deviceId, label: dispositivo.label || "Câmera" }))
+        );
+
+        const idEmUso = cameraStream?.getVideoTracks?.()[0]?.getSettings?.().deviceId || "";
+        const indiceUsado = camerasDisponiveis.findIndex(camera => camera.id === idEmUso);
+
+        if (indiceUsado >= 0) {
+            cameraIndexAtual = indiceUsado;
+        } else {
+            const indiceTraseira = indiceCameraTraseira(camerasDisponiveis);
+            cameraIndexAtual = indiceTraseira >= 0 ? indiceTraseira : 0;
+        }
+    } catch (erro) {
+        console.warn("Não foi possível listar as câmeras para alternância:", erro);
+        camerasDisponiveis = [];
+    }
+}
+
+async function processarQuadroCamera(timestamp) {
+    if (!cameraAtiva) return;
+
+    cameraScanFrame = requestAnimationFrame(processarQuadroCamera);
+
+    if (decodificacaoEmCurso || processando || timestamp - ultimoQuadroProcessado < 120) return;
+
+    const video = document.getElementById("cameraVideo");
+    if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+
+    ultimoQuadroProcessado = timestamp;
+    decodificacaoEmCurso = true;
+
+    try {
+        const canvas = document.getElementById("qrCanvas");
+        const contexto = canvas.getContext("2d", { willReadFrequently: true });
+        const largura = Math.min(video.videoWidth, 720);
+        const altura = Math.max(1, Math.round(video.videoHeight * (largura / video.videoWidth)));
+
+        if (canvas.width !== largura || canvas.height !== altura) {
+            canvas.width = largura;
+            canvas.height = altura;
+        }
+
+        contexto.drawImage(video, 0, 0, largura, altura);
+        let codigo = "";
+
+        if (typeof window.jsQR === "function") {
+            const pixels = contexto.getImageData(0, 0, largura, altura);
+            const resultado = window.jsQR(pixels.data, largura, altura, { inversionAttempts: "attemptBoth" });
+            codigo = resultado?.data || "";
+        } else if (detectorQrNativo) {
+            const resultados = await detectorQrNativo.detect(canvas);
+            codigo = resultados[0]?.rawValue || "";
+        }
+
+        if (codigo) registrarPresenca(String(codigo));
+    } catch (erro) {
+        console.warn("Não foi possível processar este quadro da câmera:", erro);
+    } finally {
+        decodificacaoEmCurso = false;
+    }
+}
+
+async function iniciarCamera(cameraId = null) {
+    const btn = document.getElementById("btnCamera");
+    const btnTrocar = document.getElementById("btnTrocarCamera");
+    const reader = document.getElementById("reader");
+    const video = prepararElementoVideo();
+
+    prepararDecodificadorQr();
+
+    try {
+        cameraStream = await abrirStreamCamera(cameraId);
+        video.srcObject = cameraStream;
+        reader.classList.add("camera-active");
+
+        await video.play();
+        await esperarVideoPronto(video);
+
+        cameraAtiva = true;
+        ultimoQuadroProcessado = 0;
+        btn.innerText = "Desativar câmera";
+
+        await atualizarListaDeCameras();
+        btnTrocar.style.display = camerasDisponiveis.length > 1 ? "inline-flex" : "none";
+        cameraScanFrame = requestAnimationFrame(processarQuadroCamera);
+    } catch (erro) {
+        cameraStream?.getTracks?.().forEach(track => track.stop());
+        cameraStream = null;
+        video.pause();
+        video.srcObject = null;
+        reader.classList.remove("camera-active");
+        throw erro;
+    }
+}
+
+async function pararCamera() {
+    const btn = document.getElementById("btnCamera");
+    const btnTrocar = document.getElementById("btnTrocarCamera");
+    const video = document.getElementById("cameraVideo");
+
+    cameraAtiva = false;
+    decodificacaoEmCurso = false;
+
+    if (cameraScanFrame) {
+        cancelAnimationFrame(cameraScanFrame);
+        cameraScanFrame = null;
+    }
+
+    cameraStream?.getTracks?.().forEach(track => track.stop());
+    cameraStream = null;
+    video.pause();
+    video.srcObject = null;
+    document.getElementById("reader").classList.remove("camera-active");
+    btn.innerText = "Ativar câmera";
+    btnTrocar.style.display = "none";
+}
+
+async function toggleCamera() {
+    try {
+        if (!cameraAtiva) {
+            await iniciarCamera();
+        } else {
+            await pararCamera();
+        }
+    } catch (err) {
+        await pararCamera();
+        alert("Erro na câmera: " + mensagemErroCamera(err));
+    }
+}
+
+async function trocarCamera() {
+    try {
+        await atualizarListaDeCameras();
+
+        if (camerasDisponiveis.length <= 1) {
+            alert("Só há uma câmera disponível.");
+            return;
+        }
+
+        const proximoIndex = (cameraIndexAtual + 1) % camerasDisponiveis.length;
+        const proximaCameraId = camerasDisponiveis[proximoIndex].id;
+
+        await pararCamera();
+        cameraIndexAtual = proximoIndex;
+        await iniciarCamera(proximaCameraId);
+
+    } catch (err) {
+        await pararCamera();
+        alert("Erro ao alternar câmera: " + mensagemErroCamera(err));
+    }
+}
+
+async function carregarEventos() {
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/eventos?select=id,nome,data_evento&order=criado_em.desc`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        alert("Erro ao carregar eventos:\n" + await res.text());
+        return;
+    }
+
+    const todosEventos = await res.json();
+    const eventos = todosEventos.filter(evento => evento.nome !== NOME_EVENTO_COLABORADORES);
+    EVENTOS_DISPONIVEIS = eventos;
+    const select = document.getElementById("eventoSelect");
+
+    select.innerHTML = "";
+
+    if (!eventos.length) {
+        select.innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
+        EVENTO_ID = "";
+        EVENTO_NOME = "";
+        preencherSeletoresAdmin();
+        limparTelaEvento();
+        return;
+    }
+
+    eventos.forEach(ev => {
+        const option = document.createElement("option");
+        option.value = ev.id;
+        option.textContent = ev.data_evento ? `${ev.nome} - ${ev.data_evento}` : ev.nome;
+        option.dataset.nome = ev.nome;
+        select.appendChild(option);
+    });
+
+    EVENTO_ID = select.value;
+    EVENTO_NOME = select.options[select.selectedIndex].dataset.nome;
+    preencherSeletoresAdmin();
+
+    await atualizarDashboard();
+    await carregarPresencas();
+    await carregarMovimentacoes();
+}
+
+function trocarEvento() {
+    const select = document.getElementById("eventoSelect");
+    EVENTO_ID = select.value;
+    EVENTO_NOME = select.options[select.selectedIndex]?.dataset.nome || "evento";
+
+    atualizarEspelhosAdmin();
+    atualizarDashboard();
+    carregarPresencas();
+    carregarMovimentacoes();
+}
+
+function limparTelaEvento() {
+    document.getElementById("dashboardInscritos").innerText = "0";
+    document.getElementById("dashboardPresencas").innerText = "0";
+    document.getElementById("dashboardPendentes").innerText = "0";
+    document.getElementById("dashboardFora").innerText = "0";
+    document.getElementById("listaPresencas").innerHTML = "";
+    document.getElementById("listaMovimentacoes").innerHTML = "";
+    document.getElementById("totalPresencas").innerText = "Presenças: 0";
+    atualizarEspelhosAdmin();
+}
+
+async function criarEvento() {
+    const nome = document.getElementById("novoEventoNome").value.trim();
+    const data = document.getElementById("novoEventoData").value;
+
+    if (!nome) {
+        alert("Digite o nome do evento.");
+        return;
+    }
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+        method: "POST",
+        headers: headers({
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }),
+        body: JSON.stringify({
+            nome: nome,
+            data_evento: data || null
+        })
+    });
+
+    if (!res.ok) {
+        const erro = await res.text();
+        alert("Erro ao criar evento:\n" + erro);
+        return;
+    }
+
+    document.getElementById("novoEventoNome").value = "";
+    document.getElementById("novoEventoData").value = "";
+    alert("Evento criado com sucesso!");
+    carregarEventos();
+}
+
+function normalizarTexto(valor) {
+    return String(valor || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+}
+
+function normalizarCabecalho(valor) {
+    return normalizarTexto(valor)
+        .replace(/\be[\s_-]*mail\b/g, "email")
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+const CAMPOS_EVEN3 = Object.freeze({
+    atividadeId: [
+        "Id",
+        "ID da atividade",
+        "Id atividade",
+        "Código da atividade",
+        "Codigo da atividade"
+    ],
+    atividadeNome: [
+        "Atividade",
+        "Nome da atividade",
+        "Título da atividade",
+        "Titulo da atividade"
+    ],
+    participanteId: [
+        "ID",
+        "Id do participante",
+        "ID participante",
+        "Código do participante",
+        "Codigo do participante"
+    ],
+    nome: [
+        "Nome",
+        "Nome do participante",
+        "Nome completo",
+        "Participante"
+    ],
+    email: [
+        "E-mail",
+        "Email",
+        "E-mail do participante",
+        "Email do participante"
+    ],
+    documento: [
+        "Documento",
+        "CPF",
+        "CPF do participante"
+    ],
+    numeroInscricao: [
+        "Número de Inscrição",
+        "Numero de Inscricao",
+        "Número da Inscrição",
+        "Numero da Inscricao",
+        "Nº Inscrição",
+        "N Inscrição",
+        "Inscrição nº",
+        "Inscricao n"
+    ],
+    inscricaoEvento: [
+        "Inscrição no evento",
+        "Inscricao no evento",
+        "Evento da inscrição",
+        "Evento da inscricao"
+    ],
+    emailInstitucional: [
+        "Inserir e-mail USCS",
+        "Inserir email USCS",
+        "E-mail USCS",
+        "Email USCS",
+        "E-mail institucional",
+        "Email institucional",
+        "E-mail institucional USCS",
+        "Email institucional USCS",
+        "E-mail acadêmico",
+        "Email academico"
+    ],
+    raMatricula: [
+        "RA / Matrícula",
+        "RA/Matrícula",
+        "RA",
+        "Matrícula",
+        "Matricula",
+        "Número de matrícula",
+        "Numero de matricula",
+        "Registro acadêmico",
+        "Registro academico"
+    ]
+});
+
+function obterCampo(row, possibilidades) {
+    const mapa = {};
+
+    Object.keys(row).forEach(chave => {
+        mapa[normalizarCabecalho(chave)] = row[chave];
+    });
+
+    for (const nome of possibilidades) {
+        const valor = mapa[normalizarCabecalho(nome)];
+        if (valor !== undefined && String(valor).trim() !== "") {
+            return String(valor).trim();
+        }
+    }
+
+    return "";
+}
+
+function normalizarDocumento(valor) {
+    return String(valor || "").replace(/\D/g, "");
+}
+
+function validarCabecalhos(rows, obrigatorios, nomeArquivo) {
+    const cabecalhos = new Set(
+        Object.keys(rows[0] || {}).map(normalizarCabecalho)
+    );
+    const grupos = obrigatorios.map(campo =>
+        Array.isArray(campo) ? campo : [campo]
+    );
+    const faltantes = grupos
+        .filter(aliases =>
+            !aliases.some(alias => cabecalhos.has(normalizarCabecalho(alias)))
+        )
+        .map(aliases => aliases[0]);
+
+    if (faltantes.length) {
+        throw new Error(
+            `${nomeArquivo}: colunas obrigatórias não encontradas: ${faltantes.join(", ")}.`
+        );
+    }
+}
+
+async function lerPrimeiraAbaExcel(arquivo, nomeArquivo) {
+    const dadosArquivo = await arquivo.arrayBuffer();
+    const workbook = XLSX.read(dadosArquivo, { type: "array" });
+
+    if (!workbook.SheetNames.length) {
+        throw new Error(`${nomeArquivo}: o arquivo não possui nenhuma planilha.`);
+    }
+
+    const primeiraAba = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(primeiraAba, {
+        defval: "",
+        raw: false
+    });
+
+    if (!rows.length) {
+        throw new Error(`${nomeArquivo}: a planilha está vazia.`);
+    }
+
+    return rows;
+}
+
+function validarCpf(cpf) {
+    const digitos = normalizarDocumento(cpf);
+    if (!/^\d{11}$/.test(digitos) || /^(\d)\1{10}$/.test(digitos)) return false;
+
+    const calcularDigito = tamanho => {
+        let soma = 0;
+        for (let i = 0; i < tamanho; i++) {
+            soma += Number(digitos[i]) * (tamanho + 1 - i);
+        }
+        const resto = (soma * 10) % 11;
+        return resto === 10 ? 0 : resto;
+    };
+
+    return calcularDigito(9) === Number(digitos[9]) &&
+        calcularDigito(10) === Number(digitos[10]);
+}
+
+function formatarCpf(valor) {
+    const cpf = normalizarDocumento(valor).slice(0, 11);
+    if (cpf.length !== 11) return cpf;
+    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+}
+
+function formatarCampoCpf(input) {
+    const cpf = normalizarDocumento(input.value).slice(0, 11);
+    let formatado = cpf;
+
+    if (cpf.length > 3) formatado = `${cpf.slice(0, 3)}.${cpf.slice(3)}`;
+    if (cpf.length > 6) formatado = `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6)}`;
+    if (cpf.length > 9) formatado = `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;
+
+    input.value = formatado;
+}
+
+async function lerPlanilhaColaboradores(arquivo) {
+    const dadosArquivo = await arquivo.arrayBuffer();
+    const workbook = XLSX.read(dadosArquivo, { type: "array" });
+
+    if (!workbook.SheetNames.length) {
+        throw new Error("A planilha de colaboradores não possui nenhuma aba.");
+    }
+
+    const primeiraAba = workbook.Sheets[workbook.SheetNames[0]];
+    const linhas = XLSX.utils.sheet_to_json(primeiraAba, {
+        header: 1,
+        defval: "",
+        raw: false
+    });
+
+    if (linhas.length < 2) {
+        throw new Error("A planilha deve ter uma linha de cabeçalho e pelo menos um colaborador.");
+    }
+
+    return linhas;
+}
+
+function analisarPlanilhaColaboradores(linhas) {
+    const porCpf = new Map();
+    const invalidos = [];
+    const conflitos = [];
+    let duplicados = 0;
+
+    linhas.slice(1).forEach((linha, indice) => {
+        const numeroLinha = indice + 2;
+        const nome = String(linha[0] || "").trim().replace(/\s+/g, " ");
+        const cpf = normalizarDocumento(linha[1]);
+        const linhaVazia = !nome && !cpf;
+
+        if (linhaVazia) return;
+
+        if (!nome) {
+            invalidos.push(`linha ${numeroLinha}: nome não informado`);
+            return;
+        }
+
+        if (!validarCpf(cpf)) {
+            invalidos.push(`linha ${numeroLinha}: CPF inválido para ${nome}`);
+            return;
+        }
+
+        const anterior = porCpf.get(cpf);
+        if (anterior) {
+            duplicados++;
+            if (normalizarTexto(anterior.nome) !== normalizarTexto(nome)) {
+                conflitos.push(
+                    `CPF ${formatarCpf(cpf)} aparece para “${anterior.nome}” e “${nome}”`
+                );
+            }
+            return;
+        }
+
+        porCpf.set(cpf, { nome, cpf });
+    });
+
+    if (conflitos.length) {
+        throw new Error(
+            `Foram encontrados CPFs associados a nomes diferentes:\n${conflitos.slice(0, 5).join("\n")}`
+        );
+    }
+
+    return {
+        colaboradores: Array.from(porCpf.values()),
+        invalidos,
+        duplicados
+    };
+}
+
+function definirStatusColaboradores(mensagem, tipo = "info") {
+    const status = document.getElementById("importacaoColaboradoresStatus");
+    if (!status) return;
+
+    status.style.display = "block";
+    status.textContent = mensagem;
+    status.style.background = tipo === "erro" ? "#f8d7da" :
+        tipo === "ok" ? "#d4edda" : "#eef5fc";
+    status.style.color = tipo === "erro" ? "#842029" :
+        tipo === "ok" ? "#0f5132" : "#0b2f55";
+}
+
+function definirResultadoColaborador(tipo, mensagem) {
+    const resultado = document.getElementById("resultadoColaborador");
+    if (!resultado) return;
+
+    resultado.classList.remove("is-ok", "is-error", "is-warning");
+    if (tipo) resultado.classList.add(`is-${tipo}`);
+    resultado.textContent = mensagem || "";
+}
+
+async function obterEventoColaboradores(criarSeNaoExistir = false) {
+    const resBusca = await fetch(
+        `${SUPABASE_URL}/rest/v1/eventos?nome=eq.${encodeURIComponent(NOME_EVENTO_COLABORADORES)}` +
+        `&select=id,nome&order=criado_em.asc&limit=1`,
+        { headers: headers() }
+    );
+
+    if (!resBusca.ok) throw new Error(await resBusca.text());
+
+    const encontrados = await resBusca.json();
+    if (encontrados.length || !criarSeNaoExistir) return encontrados[0] || null;
+
+    const resCriacao = await fetch(`${SUPABASE_URL}/rest/v1/eventos`, {
+        method: "POST",
+        headers: headers({
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }),
+        body: JSON.stringify({
+            nome: NOME_EVENTO_COLABORADORES,
+            data_evento: null
+        })
+    });
+
+    if (!resCriacao.ok) throw new Error(await resCriacao.text());
+    const criado = await resCriacao.json();
+    return criado[0];
+}
+
+async function buscarTodosEmLotes(caminho, tamanhoLote = 1000) {
+    const registros = [];
+    let deslocamento = 0;
+
+    while (true) {
+        const separador = caminho.includes("?") ? "&" : "?";
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/${caminho}${separador}limit=${tamanhoLote}&offset=${deslocamento}`,
+            { headers: headers() }
+        );
+
+        if (!res.ok) throw new Error(await res.text());
+        const lote = await res.json();
+        registros.push(...lote);
+
+        if (lote.length < tamanhoLote) break;
+        deslocamento += tamanhoLote;
+    }
+
+    return registros;
+}
+
+async function buscarDadosColaboradores() {
+    const evento = await obterEventoColaboradores(false);
+    if (!evento) return { evento: null, colaboradores: [], movimentacoes: [] };
+
+    const eventoId = encodeURIComponent(evento.id);
+    const [colaboradores, movimentacoes] = await Promise.all([
+        buscarTodosEmLotes(
+            `inscritos?evento_id=eq.${eventoId}&select=id,nome,numero_inscricao,documento&order=nome.asc`
+        ),
+        buscarTodosEmLotes(
+            `movimentacoes_presenca?evento_id=eq.${eventoId}` +
+            `&select=id,inscrito_id,numero_inscricao,tipo_movimento,horario,inscritos(nome)` +
+            `&order=horario.asc`
+        )
+    ]);
+
+    return { evento, colaboradores, movimentacoes };
+}
+
+function resetarPainelColaboradores() {
+    ["colabResumoImportados", "colabResumoEntradas", "colabResumoSaidas", "colabResumoDentro"]
+        .forEach(id => {
+            const elemento = document.getElementById(id);
+            if (elemento) elemento.textContent = "0";
+        });
+
+    const tbody = document.getElementById("listaMovimentacoesColaboradores");
+    if (tbody) tbody.innerHTML = "";
+}
+
+async function carregarPainelColaboradores() {
+    try {
+        const { colaboradores, movimentacoes } = await buscarDadosColaboradores();
+        const comEntrada = new Set();
+        const comSaida = new Set();
+        const ultimoMovimento = new Map();
+
+        movimentacoes.forEach(item => {
+            const chave = String(item.inscrito_id || item.numero_inscricao || "");
+            if (item.tipo_movimento === "entrada") comEntrada.add(chave);
+            if (item.tipo_movimento === "saida") comSaida.add(chave);
+            ultimoMovimento.set(chave, item.tipo_movimento);
+        });
+
+        const dentro = Array.from(ultimoMovimento.values())
+            .filter(tipo => tipo === "entrada" || tipo === "retorno").length;
+
+        document.getElementById("colabResumoImportados").textContent = colaboradores.length;
+        document.getElementById("colabResumoEntradas").textContent = comEntrada.size;
+        document.getElementById("colabResumoSaidas").textContent = comSaida.size;
+        document.getElementById("colabResumoDentro").textContent = dentro;
+
+        const tbody = document.getElementById("listaMovimentacoesColaboradores");
+        tbody.innerHTML = "";
+
+        const recentes = movimentacoes.slice(-30).reverse();
+        if (!recentes.length) {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+            td.colSpan = 4;
+            td.className = "muted";
+            td.textContent = "Nenhuma entrada ou saída registrada.";
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        recentes.forEach(item => {
+            const tr = document.createElement("tr");
+            const valores = [
+                item.inscritos?.nome || "",
+                formatarCpf(item.numero_inscricao || ""),
+                item.tipo_movimento === "saida" ? "Saída" : "Entrada",
+                item.horario ? new Date(item.horario).toLocaleString("pt-BR") : ""
+            ];
+
+            valores.forEach(valor => {
+                const td = document.createElement("td");
+                td.textContent = valor;
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    } catch (erro) {
+        console.error("Erro ao carregar colaboradores:", erro);
+        resetarPainelColaboradores();
+        definirResultadoColaborador("error", "Não foi possível carregar os dados dos colaboradores.");
+    }
+}
+
+async function importarColaboradoresExcel() {
+    const input = document.getElementById("excelColaboradoresInput");
+    const botao = document.getElementById("btnImportarColaboradores");
+    const arquivo = input.files[0];
+
+    if (!arquivo) {
+        alert("Selecione a planilha de colaboradores.");
+        return;
+    }
+
+    botao.disabled = true;
+    definirStatusColaboradores("Lendo e validando a planilha...");
+
+    try {
+        const linhas = await lerPlanilhaColaboradores(arquivo);
+        const analise = analisarPlanilhaColaboradores(linhas);
+
+        if (!analise.colaboradores.length) {
+            throw new Error("Nenhum colaborador com nome e CPF válido foi encontrado.");
+        }
+
+        const exemplosInvalidos = analise.invalidos.slice(0, 5).join("\n");
+        const confirmar = confirm(
+            `Prévia da importação:\n\n` +
+            `${analise.colaboradores.length} colaborador(es) válido(s)\n` +
+            `${analise.duplicados} CPF(s) duplicado(s) ignorado(s)\n` +
+            `${analise.invalidos.length} linha(s) inválida(s) ignorada(s)` +
+            (exemplosInvalidos ? `\n\nExemplos de linhas ignoradas:\n${exemplosInvalidos}` : "") +
+            `\n\nDeseja importar esses colaboradores?`
+        );
+
+        if (!confirmar) {
+            definirStatusColaboradores("Importação cancelada. Nenhum dado foi gravado.");
+            return;
+        }
+
+        definirStatusColaboradores("Salvando os colaboradores...");
+        const evento = await obterEventoColaboradores(true);
+        const payload = analise.colaboradores.map(colaborador => ({
+            evento_id: evento.id,
+            nome: colaborador.nome,
+            numero_inscricao: colaborador.cpf,
+            documento: colaborador.cpf
+        }));
+
+        await postarEmLotes("inscritos", payload, "evento_id,numero_inscricao");
+
+        input.value = "";
+        definirStatusColaboradores(
+            `Importação concluída com sucesso!\n` +
+            `${analise.colaboradores.length} colaborador(es) criado(s)/atualizado(s).\n` +
+            `${analise.invalidos.length} linha(s) inválida(s) ignorada(s).`,
+            "ok"
+        );
+        await carregarPainelColaboradores();
+        atualizarResumoGeralAdmin();
+        document.getElementById("cpfColaboradorInput")?.focus();
+    } catch (erro) {
+        console.error("Erro na importação de colaboradores:", erro);
+        definirStatusColaboradores(`Erro ao importar: ${erro.message}`, "erro");
+    } finally {
+        botao.disabled = false;
+    }
+}
+
+async function registrarPresencaColaborador(event) {
+    event?.preventDefault();
+    if (colaboradorProcessando) return;
+
+    const input = document.getElementById("cpfColaboradorInput");
+    const botao = document.getElementById("btnValidarColaborador");
+    const cpf = normalizarDocumento(input.value);
+
+    if (!validarCpf(cpf)) {
+        definirResultadoColaborador("error", "Digite um CPF válido com 11 dígitos.");
+        input.focus();
+        return;
+    }
+
+    colaboradorProcessando = true;
+    botao.disabled = true;
+    definirResultadoColaborador("warning", "Validando CPF...");
+
+    try {
+        const evento = await obterEventoColaboradores(false);
+        if (!evento) {
+            throw new Error("Importe primeiro a planilha de colaboradores.");
+        }
+
+        const resColaborador = await fetch(
+            `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${encodeURIComponent(evento.id)}` +
+            `&numero_inscricao=eq.${encodeURIComponent(cpf)}` +
+            `&select=id,nome,numero_inscricao&limit=1`,
+            { headers: headers() }
+        );
+
+        if (!resColaborador.ok) throw new Error(await resColaborador.text());
+        const colaboradores = await resColaborador.json();
+
+        if (!colaboradores.length) {
+            definirResultadoColaborador(
+                "error",
+                `CPF ${formatarCpf(cpf)} não encontrado na relação importada.`
+            );
+            return;
+        }
+
+        const colaborador = colaboradores[0];
+        const resUltimo = await fetch(
+            `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${encodeURIComponent(evento.id)}` +
+            `&inscrito_id=eq.${encodeURIComponent(colaborador.id)}` +
+            `&select=tipo_movimento,horario&order=horario.desc&limit=1`,
+            { headers: headers() }
+        );
+
+        if (!resUltimo.ok) throw new Error(await resUltimo.text());
+        const ultimo = (await resUltimo.json())[0] || null;
+
+        if (ultimo?.horario && Date.now() - new Date(ultimo.horario).getTime() < 15000) {
+            definirResultadoColaborador(
+                "warning",
+                `${colaborador.nome} já foi validado há poucos segundos. Aguarde antes de tentar novamente.`
+            );
+            return;
+        }
+
+        if (ultimo?.tipo_movimento === "saida") {
+            definirResultadoColaborador(
+                "warning",
+                `${colaborador.nome} já possui entrada e saída registradas. Nenhum novo registro foi criado.`
+            );
+            return;
+        }
+
+        const tipo = ultimo ? "saida" : "entrada";
+        const resRegistro = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca`, {
+            method: "POST",
+            headers: headers({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+                evento_id: evento.id,
+                inscrito_id: colaborador.id,
+                numero_inscricao: colaborador.numero_inscricao,
+                tipo_movimento: tipo
+            })
+        });
+
+        if (!resRegistro.ok) throw new Error(await resRegistro.text());
+
+        input.value = "";
+        definirResultadoColaborador(
+            "ok",
+            `${tipo === "entrada" ? "Entrada" : "Saída"} registrada: ${colaborador.nome} — ` +
+            new Date().toLocaleString("pt-BR")
+        );
+        tocarSom("ok");
+        await carregarPainelColaboradores();
+    } catch (erro) {
+        console.error("Erro ao validar colaborador:", erro);
+        definirResultadoColaborador("error", `Erro ao registrar: ${erro.message}`);
+        tocarSom("erro");
+    } finally {
+        colaboradorProcessando = false;
+        botao.disabled = false;
+        input.focus();
+    }
+}
+
+async function exportarColaboradoresExcel() {
+    try {
+        const { colaboradores, movimentacoes } = await buscarDadosColaboradores();
+
+        if (!colaboradores.length) {
+            alert("Nenhum colaborador importado para exportar.");
+            return;
+        }
+
+        const registrosPorInscrito = new Map();
+        movimentacoes.forEach(item => {
+            const chave = String(item.inscrito_id || "");
+            if (!registrosPorInscrito.has(chave)) {
+                registrosPorInscrito.set(chave, { entrada: "", saida: "" });
+            }
+
+            const registro = registrosPorInscrito.get(chave);
+            const horario = item.horario ? new Date(item.horario).toLocaleString("pt-BR") : "";
+            if (item.tipo_movimento === "entrada" && !registro.entrada) registro.entrada = horario;
+            if (item.tipo_movimento === "saida" && !registro.saida) registro.saida = horario;
+        });
+
+        const linhas = colaboradores.map(colaborador => {
+            const registro = registrosPorInscrito.get(String(colaborador.id)) || {};
+            return {
+                Nome: colaborador.nome || "",
+                CPF: formatarCpf(colaborador.numero_inscricao || colaborador.documento || ""),
+                Entrada: registro.entrada || "",
+                "Saída": registro.saida || ""
+            };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(linhas);
+        ws["!cols"] = [
+            { wch: 40 },
+            { wch: 18 },
+            { wch: 23 },
+            { wch: 23 }
+        ];
+        ws["!autofilter"] = { ref: `A1:D${linhas.length + 1}` };
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Colaboradores");
+        XLSX.writeFile(wb, "presenca_colaboradores.xlsx");
+    } catch (erro) {
+        console.error("Erro ao exportar colaboradores:", erro);
+        alert(`Erro ao exportar colaboradores:\n${erro.message}`);
+    }
+}
+
+async function limparDadosColaboradores() {
+    const evento = await obterEventoColaboradores(false).catch(() => null);
+    if (!evento) {
+        alert("Não há dados de colaboradores para limpar.");
+        return;
+    }
+
+    if (!autenticarZonaRisco("limpar os colaboradores")) return;
+
+    const confirmar = confirm(
+        "Tem certeza que deseja apagar TODOS os colaboradores e seus registros de entrada e saída?"
+    );
+    if (!confirmar) return;
+
+    try {
+        for (const tabela of ["movimentacoes_presenca", "presencas", "inscritos"]) {
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/${tabela}?evento_id=eq.${encodeURIComponent(evento.id)}`,
+                { method: "DELETE", headers: headers() }
+            );
+            if (!res.ok) throw new Error(await res.text());
+        }
+
+        const resEvento = await fetch(
+            `${SUPABASE_URL}/rest/v1/eventos?id=eq.${encodeURIComponent(evento.id)}`,
+            { method: "DELETE", headers: headers() }
+        );
+        if (!resEvento.ok) throw new Error(await resEvento.text());
+
+        resetarPainelColaboradores();
+        definirResultadoColaborador("", "");
+        definirStatusColaboradores("Todos os dados de colaboradores foram apagados.", "ok");
+        atualizarResumoGeralAdmin();
+        alert("Dados dos colaboradores apagados com sucesso.");
+    } catch (erro) {
+        console.error("Erro ao limpar colaboradores:", erro);
+        alert(`Erro ao limpar colaboradores:\n${erro.message}`);
+    }
+}
+
+function definirStatusImportacao(mensagem, tipo = "info") {
+    const status = document.getElementById("importacaoEven3Status");
+    status.style.display = "block";
+    status.textContent = mensagem;
+    status.style.background = tipo === "erro" ? "#f8d7da" :
+        tipo === "ok" ? "#d4edda" : "#eef5fc";
+    status.style.color = tipo === "erro" ? "#842029" :
+        tipo === "ok" ? "#0f5132" : "#0b2f55";
+}
+
+function analisarLinhasEven3(rows) {
+    const obrigatorios = [
+        CAMPOS_EVEN3.atividadeId,
+        CAMPOS_EVEN3.atividadeNome,
+        CAMPOS_EVEN3.participanteId.slice(1),
+        CAMPOS_EVEN3.nome
+    ];
+    validarCabecalhos(rows, obrigatorios, "Lista Inscritos");
+
+    const registros = [];
+    const atividades = new Map();
+    let linhasIgnoradas = 0;
+
+    rows.forEach(row => {
+        const atividadeId = obterCampo(row, CAMPOS_EVEN3.atividadeId);
+        const atividadeNome = obterCampo(row, CAMPOS_EVEN3.atividadeNome);
+        const participanteId = obterCampo(row, CAMPOS_EVEN3.participanteId.slice(1));
+        const nome = obterCampo(row, CAMPOS_EVEN3.nome);
+        const email = obterCampo(row, CAMPOS_EVEN3.email);
+        const documento = obterCampo(row, CAMPOS_EVEN3.documento);
+        const inscricaoEvento = obterCampo(row, CAMPOS_EVEN3.inscricaoEvento);
+
+        const atividadePareceNome = atividadeNome && !/^\d+$/.test(atividadeNome);
+        const participantePareceNome = nome && !/^\d+$/.test(nome);
+        const idsValidos = /^\d{3,}$/.test(atividadeId) && /^\d{3,}$/.test(participanteId);
+
+        if (!idsValidos || !atividadePareceNome || !participantePareceNome) {
+            linhasIgnoradas++;
+            return;
+        }
+
+        atividades.set(atividadeId, {
+            even3_atividade_id: atividadeId,
+            nome: atividadeNome
+        });
+
+        registros.push({
+            atividadeId,
+            participanteId,
+            nome,
+            email,
+            documento,
+            inscricaoEvento
+        });
+    });
+
+    const registrosUnicos = Array.from(new Map(
+        registros.map(registro => [
+            `${registro.atividadeId}-${registro.participanteId}`,
+            registro
+        ])
+    ).values());
+
+    return {
+        atividades: Array.from(atividades.values()),
+        registros: registrosUnicos,
+        linhasIgnoradas,
+        duplicadosIgnorados: registros.length - registrosUnicos.length
+    };
+}
+
+function analisarListaParticipantes(rows) {
+    validarCabecalhos(
+        rows,
+        [
+            CAMPOS_EVEN3.participanteId,
+            CAMPOS_EVEN3.numeroInscricao,
+            CAMPOS_EVEN3.documento
+        ],
+        "ListaParticipante"
+    );
+
+    const participantesPorId = new Map();
+    const numeroParaId = new Map();
+    const conflitos = [];
+    let linhasIgnoradas = 0;
+    let semNumeroInscricao = 0;
+    let duplicadosIgnorados = 0;
+
+    rows.forEach((row, indice) => {
+        const participanteId = obterCampo(row, CAMPOS_EVEN3.participanteId);
+        const numeroInscricao = obterCampo(row, CAMPOS_EVEN3.numeroInscricao);
+        const nome = obterCampo(row, CAMPOS_EVEN3.nome);
+        const email = obterCampo(row, CAMPOS_EVEN3.email);
+        const documento = obterCampo(row, CAMPOS_EVEN3.documento);
+        const emailInstitucional = obterCampo(
+            row,
+            CAMPOS_EVEN3.emailInstitucional
+        );
+        const raMatricula = obterCampo(row, CAMPOS_EVEN3.raMatricula);
+
+        if (!/^\d{3,}$/.test(participanteId) || !nome || /^\d+$/.test(nome)) {
+            linhasIgnoradas++;
+            return;
+        }
+
+        if (!/^\d{3,}$/.test(numeroInscricao)) {
+            semNumeroInscricao++;
+        }
+
+        const participante = {
+            participanteId,
+            numeroInscricao: /^\d{3,}$/.test(numeroInscricao) ? numeroInscricao : "",
+            nome,
+            email,
+            documento,
+            emailInstitucional,
+            raMatricula
+        };
+
+        const anterior = participantesPorId.get(participanteId);
+        if (anterior) {
+            const numeroConflitante = anterior.numeroInscricao && participante.numeroInscricao &&
+                anterior.numeroInscricao !== participante.numeroInscricao;
+            const documentoAnterior = normalizarDocumento(anterior.documento);
+            const documentoAtual = normalizarDocumento(participante.documento);
+            const documentoConflitante = documentoAnterior && documentoAtual &&
+                documentoAnterior !== documentoAtual;
+            const raConflitante = anterior.raMatricula && participante.raMatricula &&
+                normalizarTexto(anterior.raMatricula) !== normalizarTexto(participante.raMatricula);
+            const emailInstitucionalConflitante = anterior.emailInstitucional &&
+                participante.emailInstitucional &&
+                normalizarTexto(anterior.emailInstitucional) !==
+                    normalizarTexto(participante.emailInstitucional);
+
+            if (numeroConflitante || documentoConflitante || raConflitante ||
+                emailInstitucionalConflitante) {
+                conflitos.push(
+                    `linha ${indice + 2}: ID ${participanteId} aparece com dados diferentes`
+                );
+                return;
+            }
+
+            duplicadosIgnorados++;
+            if (!anterior.numeroInscricao && participante.numeroInscricao) {
+                const outroId = numeroParaId.get(participante.numeroInscricao);
+                if (outroId && outroId !== participanteId) {
+                    conflitos.push(
+                        `linha ${indice + 2}: Número de inscrição ${participante.numeroInscricao} ` +
+                        `está associado aos IDs ${outroId} e ${participanteId}`
+                    );
+                    return;
+                }
+                numeroParaId.set(participante.numeroInscricao, participanteId);
+            }
+
+            participantesPorId.set(participanteId, {
+                participanteId,
+                numeroInscricao: anterior.numeroInscricao || participante.numeroInscricao,
+                nome: anterior.nome || participante.nome,
+                email: anterior.email || participante.email,
+                documento: anterior.documento || participante.documento,
+                emailInstitucional: anterior.emailInstitucional ||
+                    participante.emailInstitucional,
+                raMatricula: anterior.raMatricula || participante.raMatricula
+            });
+            return;
+        }
+
+        participantesPorId.set(participanteId, participante);
+
+        if (participante.numeroInscricao) {
+            const outroId = numeroParaId.get(participante.numeroInscricao);
+            if (outroId && outroId !== participanteId) {
+                conflitos.push(
+                    `linha ${indice + 2}: Número de inscrição ${participante.numeroInscricao} ` +
+                    `está associado aos IDs ${outroId} e ${participanteId}`
+                );
+            } else {
+                numeroParaId.set(participante.numeroInscricao, participanteId);
+            }
+        }
+    });
+
+    return {
+        participantesPorId,
+        linhasIgnoradas,
+        semNumeroInscricao,
+        duplicadosIgnorados,
+        conflitos
+    };
+}
+
+function cruzarPlanilhasEven3(rowsInscritos, rowsParticipantes) {
+    const atividades = analisarLinhasEven3(rowsInscritos);
+    const participantes = analisarListaParticipantes(rowsParticipantes);
+
+    if (participantes.conflitos.length) {
+        throw new Error(
+            `A ListaParticipante possui dados conflitantes:\n` +
+            participantes.conflitos.slice(0, 5).join("\n")
+        );
+    }
+
+    const registros = [];
+    const semCorrespondencia = [];
+    const semNumeroInscricao = [];
+    const documentosDivergentes = [];
+
+    atividades.registros.forEach(registro => {
+        const participante = participantes.participantesPorId.get(registro.participanteId);
+
+        if (!participante) {
+            semCorrespondencia.push(registro);
+            return;
+        }
+
+        if (!participante.numeroInscricao) {
+            semNumeroInscricao.push(registro);
+            return;
+        }
+
+        const documentoInscrito = normalizarDocumento(registro.documento);
+        const documentoParticipante = normalizarDocumento(participante.documento);
+
+        if (documentoInscrito && documentoParticipante &&
+            documentoInscrito !== documentoParticipante) {
+            documentosDivergentes.push(registro);
+            return;
+        }
+
+        registros.push({
+            ...registro,
+            numeroInscricao: participante.numeroInscricao,
+            nome: registro.nome || participante.nome,
+            email: registro.email || participante.email,
+            documento: registro.documento || participante.documento,
+            emailInstitucional: participante.emailInstitucional,
+            raMatricula: participante.raMatricula
+        });
+    });
+
+    if (documentosDivergentes.length) {
+        const exemplos = documentosDivergentes.slice(0, 5)
+            .map(r => `${r.nome} (ID ${r.participanteId})`)
+            .join(", ");
+        throw new Error(
+            `${documentosDivergentes.length} participante(s) possuem documento/CPF divergente ` +
+            `entre as duas planilhas. Nenhum dado foi gravado. Exemplos: ${exemplos}.`
+        );
+    }
+
+    const registrosUnicos = Array.from(new Map(
+        registros.map(registro => [
+            `${registro.atividadeId}-${registro.numeroInscricao}`,
+            registro
+        ])
+    ).values());
+    const participantesUnicos = Array.from(new Map(
+        registrosUnicos.map(registro => [registro.participanteId, registro])
+    ).values());
+
+    return {
+        atividades: atividades.atividades,
+        registros: registrosUnicos,
+        linhasInscritosIgnoradas: atividades.linhasIgnoradas,
+        linhasParticipantesIgnoradas: participantes.linhasIgnoradas,
+        participantesSemCorrespondencia: semCorrespondencia,
+        participantesSemNumero: semNumeroInscricao,
+        participantesSemEmailInstitucional: participantesUnicos.filter(
+            participante => !participante.emailInstitucional
+        ).length,
+        participantesSemRaMatricula: participantesUnicos.filter(
+            participante => !participante.raMatricula
+        ).length,
+        duplicadosIgnorados: atividades.duplicadosIgnorados +
+            participantes.duplicadosIgnorados +
+            (registros.length - registrosUnicos.length)
+    };
+}
+
+async function postarEmLotes(tabela, payload, conflito, tamanhoLote = 500) {
+    for (let inicio = 0; inicio < payload.length; inicio += tamanhoLote) {
+        const lote = payload.slice(inicio, inicio + tamanhoLote);
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/${tabela}?on_conflict=${conflito}`,
+            {
+                method: "POST",
+                headers: headers({
+                    "Content-Type": "application/json",
+                    "Prefer": "resolution=merge-duplicates,return=minimal"
+                }),
+                body: JSON.stringify(lote)
+            }
+        );
+
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+    }
+}
+
+async function inserirNovosEmLotes(tabela, payload, tamanhoLote = 500) {
+    for (let inicio = 0; inicio < payload.length; inicio += tamanhoLote) {
+        const lote = payload.slice(inicio, inicio + tamanhoLote);
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}`, {
+            method: "POST",
+            headers: headers({
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            }),
+            body: JSON.stringify(lote)
+        });
+
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+    }
+}
+
+function normalizarComparacao(campo, valor) {
+    if (campo === "documento") return normalizarDocumento(valor);
+    if (campo === "email" || campo === "email_institucional") {
+        return String(valor || "").trim().toLowerCase();
+    }
+    if (campo === "nome") {
+        return String(valor || "").trim().replace(/\s+/g, " ");
+    }
+    if (campo === "ra_matricula") return normalizarTexto(valor);
+    return String(valor ?? "").trim();
+}
+
+function obterAlteracoesParticipante(existente, participante) {
+    const campos = [
+        "nome",
+        "numero_inscricao",
+        "even3_participante_id",
+        "email",
+        "documento",
+        "inscricao_evento",
+        "email_institucional",
+        "ra_matricula"
+    ];
+    const alteracoes = {};
+
+    campos.forEach(campo => {
+        if (normalizarComparacao(campo, existente[campo]) !==
+            normalizarComparacao(campo, participante[campo])) {
+            alteracoes[campo] = participante[campo];
+        }
+    });
+
+    return alteracoes;
+}
+
+async function sincronizarAtividadesEven3(atividades) {
+    const eventosExistentes = await buscarTodosEmLotes(
+        "eventos?select=id,nome,even3_atividade_id"
+    );
+    const porIdEven3 = new Map();
+
+    eventosExistentes.forEach(evento => {
+        if (!evento.even3_atividade_id) return;
+        const chave = String(evento.even3_atividade_id);
+        if (porIdEven3.has(chave)) {
+            throw new Error(
+                `Existem duas atividades no banco vinculadas ao ID Even3 ${chave}. ` +
+                `A importação foi interrompida para evitar duplicidades.`
+            );
+        }
+        porIdEven3.set(chave, evento);
+    });
+
+    const novas = [];
+    let atualizadas = 0;
+    let inalteradas = 0;
+
+    for (const atividade of atividades) {
+        const chave = String(atividade.even3_atividade_id);
+        const existentePorId = porIdEven3.get(chave);
+
+        if (existentePorId) {
+            if (String(existentePorId.nome || "").trim() === String(atividade.nome || "").trim()) {
+                inalteradas++;
+                continue;
+            }
+
+            const resAtualizacao = await fetch(
+                `${SUPABASE_URL}/rest/v1/eventos?id=eq.${encodeURIComponent(existentePorId.id)}`,
+                {
+                    method: "PATCH",
+                    headers: headers({
+                        "Content-Type": "application/json",
+                        "Prefer": "return=minimal"
+                    }),
+                    body: JSON.stringify({ nome: atividade.nome })
+                }
+            );
+
+            if (!resAtualizacao.ok) throw new Error(await resAtualizacao.text());
+            atualizadas++;
+            continue;
+        }
+
+        const candidatosPorNome = eventosExistentes.filter(evento =>
+            !evento.even3_atividade_id &&
+            normalizarTexto(evento.nome) === normalizarTexto(atividade.nome)
+        );
+
+        if (candidatosPorNome.length > 1) {
+            throw new Error(
+                `Há mais de uma atividade chamada “${atividade.nome}” sem vínculo com o Even3. ` +
+                `A importação foi interrompida para evitar duplicidade.`
+            );
+        }
+
+        if (candidatosPorNome.length === 1) {
+            inalteradas++;
+            continue;
+        }
+
+        novas.push(atividade);
+    }
+
+    if (novas.length) await inserirNovosEmLotes("eventos", novas);
+
+    const eventosAposSincronizacao = novas.length
+        ? await buscarTodosEmLotes("eventos?select=id,nome,even3_atividade_id")
+        : eventosExistentes;
+    const eventoPorIdEven3 = new Map();
+
+    atividades.forEach(atividade => {
+        const chave = String(atividade.even3_atividade_id);
+        const porId = eventosAposSincronizacao.find(evento =>
+            String(evento.even3_atividade_id || "") === chave
+        );
+        const candidatosPorNome = porId ? [] : eventosAposSincronizacao.filter(evento =>
+            !evento.even3_atividade_id &&
+            normalizarTexto(evento.nome) === normalizarTexto(atividade.nome)
+        );
+        const eventoResolvido = porId ||
+            (candidatosPorNome.length === 1 ? candidatosPorNome[0] : null);
+
+        if (!eventoResolvido) {
+            throw new Error(
+                `A atividade “${atividade.nome}” não pôde ser localizada após a comparação.`
+            );
+        }
+
+        eventoPorIdEven3.set(chave, eventoResolvido.id);
+    });
+
+    return {
+        criadas: novas.length,
+        atualizadas,
+        inalteradas,
+        eventoPorIdEven3
+    };
+}
+
+async function atualizarReferenciasNumeroInscricao(inscritoId, numeroInscricao) {
+    for (const tabela of ["presencas", "movimentacoes_presenca"]) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/${tabela}?inscrito_id=eq.${encodeURIComponent(inscritoId)}`,
+            {
+                method: "PATCH",
+                headers: headers({
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal"
+                }),
+                body: JSON.stringify({ numero_inscricao: numeroInscricao })
+            }
+        );
+
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+    }
+}
+
+async function salvarParticipantesEven3(participantes) {
+    const idsEventos = Array.from(new Set(participantes.map(p => p.evento_id)));
+    const filtroEventos = `(${idsEventos.join(",")})`;
+    const existentes = await buscarTodosEmLotes(
+        `inscritos?evento_id=in.${encodeURIComponent(filtroEventos)}` +
+        `&select=id,evento_id,nome,numero_inscricao,even3_participante_id,email,documento,` +
+        `inscricao_evento,email_institucional,ra_matricula`
+    );
+    const porIdEven3 = new Map();
+    const porNumero = new Map();
+
+    existentes.forEach(item => {
+        if (item.even3_participante_id) {
+            porIdEven3.set(
+                `${item.evento_id}-${String(item.even3_participante_id)}`,
+                item
+            );
+        }
+        porNumero.set(`${item.evento_id}-${String(item.numero_inscricao)}`, item);
+    });
+
+    const novos = [];
+    let atualizados = 0;
+    let inalterados = 0;
+
+    for (const participante of participantes) {
+        const chaveId = `${participante.evento_id}-${participante.even3_participante_id}`;
+        const chaveNumero = `${participante.evento_id}-${participante.numero_inscricao}`;
+        const existentePorId = porIdEven3.get(chaveId);
+        const existentePorNumero = porNumero.get(chaveNumero);
+        const candidatoLegado = porNumero.get(chaveId);
+        const legadoPorIdNoNumero = candidatoLegado &&
+            (!candidatoLegado.even3_participante_id ||
+             String(candidatoLegado.even3_participante_id) === participante.even3_participante_id)
+            ? candidatoLegado
+            : null;
+        const candidatos = Array.from(new Map(
+            [existentePorId, existentePorNumero, legadoPorIdNoNumero]
+                .filter(Boolean)
+                .map(item => [item.id, item])
+        ).values());
+
+        if (candidatos.length > 1) {
+            throw new Error(
+                `Conflito no banco para o participante ${participante.nome}: ` +
+                `o ID interno e o Número de inscrição apontam para registros diferentes.`
+            );
+        }
+
+        const existente = candidatos[0];
+
+        if (!existente) {
+            novos.push(participante);
+            continue;
+        }
+
+        const alteracoes = obterAlteracoesParticipante(existente, participante);
+        const numeroAlterado = Object.prototype.hasOwnProperty.call(
+            alteracoes,
+            "numero_inscricao"
+        );
+
+        if (!Object.keys(alteracoes).length) {
+            inalterados++;
+            continue;
+        }
+
+        if (numeroAlterado) {
+            await atualizarReferenciasNumeroInscricao(
+                existente.id,
+                participante.numero_inscricao
+            );
+        }
+
+        const resAtualizacao = await fetch(
+            `${SUPABASE_URL}/rest/v1/inscritos?id=eq.${encodeURIComponent(existente.id)}`,
+            {
+                method: "PATCH",
+                headers: headers({
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal"
+                }),
+                body: JSON.stringify(alteracoes)
+            }
+        );
+
+        if (!resAtualizacao.ok) {
+            throw new Error(await resAtualizacao.text());
+        }
+
+        atualizados++;
+    }
+
+    if (novos.length) {
+        await inserirNovosEmLotes("inscritos", novos);
+    }
+
+    return { criados: novos.length, atualizados, inalterados };
+}
+
+async function importarExcelEven3() {
+    const inputInscritos = document.getElementById("excelInscritosEven3Input");
+    const inputParticipantes = document.getElementById("excelParticipantesEven3Input");
+    const botao = document.getElementById("btnImportarExcelEven3");
+    const arquivoInscritos = inputInscritos.files[0];
+    const arquivoParticipantes = inputParticipantes.files[0];
+
+    if (!arquivoInscritos || !arquivoParticipantes) {
+        alert("Selecione as duas planilhas: Lista Inscritos e ListaParticipante.");
+        return;
+    }
+
+    botao.disabled = true;
+    definirStatusImportacao("Lendo, cruzando e validando as duas planilhas...");
+
+    try {
+        const [rowsInscritos, rowsParticipantes] = await Promise.all([
+            lerPrimeiraAbaExcel(arquivoInscritos, "Lista Inscritos"),
+            lerPrimeiraAbaExcel(arquivoParticipantes, "ListaParticipante")
+        ]);
+
+        const analise = cruzarPlanilhasEven3(rowsInscritos, rowsParticipantes);
+
+        if (!analise.atividades.length || !analise.registros.length) {
+            throw new Error(
+                "Nenhuma atividade com participante e Número de inscrição válido foi encontrada."
+            );
+        }
+
+        const resumoAtividades = analise.atividades
+            .map(atividade => {
+                const total = analise.registros.filter(r =>
+                    r.atividadeId === atividade.even3_atividade_id
+                ).length;
+                return `• ${atividade.nome}: ${total} participante(s)`;
+            })
+            .join("\n");
+
+        const confirmar = confirm(
+            `Prévia da importação:\n\n` +
+            `${analise.atividades.length} atividade(s)\n` +
+            `${analise.registros.length} inscrição(ões) cruzada(s) pelo ID do participante\n` +
+            `${analise.participantesSemCorrespondencia.length} vínculo(s) sem correspondência na ListaParticipante\n` +
+            `${analise.participantesSemNumero.length} vínculo(s) sem Número de inscrição\n` +
+            `${analise.participantesSemEmailInstitucional} participante(s) sem e-mail institucional\n` +
+            `${analise.participantesSemRaMatricula} participante(s) sem RA/matrícula\n` +
+            `${analise.linhasInscritosIgnoradas} linha(s) inválida(s) da Lista Inscritos ignorada(s)\n` +
+            `${analise.linhasParticipantesIgnoradas} linha(s) inválida(s) da ListaParticipante ignorada(s)\n` +
+            `${analise.duplicadosIgnorados} duplicidade(s) ignorada(s)\n\n` +
+            `${resumoAtividades}\n\n` +
+            `O aplicativo comparará esses dados com o banco e gravará somente as diferenças.\n\n` +
+            `Deseja continuar?`
+        );
+
+        if (!confirmar) {
+            definirStatusImportacao("Importação cancelada. Nenhum dado foi gravado.");
+            return;
+        }
+
+        definirStatusImportacao("Comparando as atividades com os dados já cadastrados...");
+        const resultadoAtividades = await sincronizarAtividadesEven3(analise.atividades);
+        const eventoPorIdEven3 = resultadoAtividades.eventoPorIdEven3;
+
+        definirStatusImportacao("Comparando os participantes com os dados já cadastrados...");
+        const participantes = analise.registros.map(registro => ({
+            evento_id: eventoPorIdEven3.get(registro.atividadeId),
+            nome: registro.nome,
+            numero_inscricao: registro.numeroInscricao,
+            even3_participante_id: registro.participanteId,
+            email: registro.email || null,
+            documento: registro.documento || null,
+            inscricao_evento: registro.inscricaoEvento || null,
+            email_institucional: registro.emailInstitucional || null,
+            ra_matricula: registro.raMatricula || null
+        }));
+
+        const resultadoGravacao = await salvarParticipantesEven3(participantes);
+
+        definirStatusImportacao(
+            `Importação concluída com sucesso!\n` +
+            `${resultadoAtividades.criadas} atividade(s) nova(s) criada(s).\n` +
+            `${resultadoAtividades.atualizadas} atividade(s) com diferença atualizada(s).\n` +
+            `${resultadoAtividades.inalteradas} atividade(s) já cadastrada(s), sem nova gravação.\n` +
+            `${resultadoGravacao.criados} inscrição(ões) nova(s) criada(s).\n` +
+            `${resultadoGravacao.atualizados} inscrição(ões) com diferença atualizada(s).\n` +
+            `${resultadoGravacao.inalterados} inscrição(ões) já cadastrada(s), sem nova gravação.\n` +
+            `${analise.participantesSemCorrespondencia.length + analise.participantesSemNumero.length} ` +
+            `vínculo(s) sem Número de inscrição ignorado(s).\n` +
+            `${analise.participantesSemEmailInstitucional} participante(s) sem e-mail institucional.\n` +
+            `${analise.participantesSemRaMatricula} participante(s) sem RA/matrícula.`,
+            "ok"
+        );
+
+        inputInscritos.value = "";
+        inputParticipantes.value = "";
+        await carregarEventos();
+
+    } catch (err) {
+        console.error("Erro na importação Even3:", err);
+        definirStatusImportacao(
+            `Erro ao importar: ${err.message}\n\n` +
+            `Confira se foram selecionados os relatórios Lista Inscritos e ListaParticipante corretos.`,
+            "erro"
+        );
+    } finally {
+        botao.disabled = false;
+    }
+}
+
+async function importarCSV() {
+    const atividade = obterAtividadeAdmin("adminCsvEventoSelect");
+
+    if (!atividade) {
+        alert("Selecione a atividade que receberá a lista CSV.");
+        return;
+    }
+
+    const fileInput = document.getElementById("csvInput");
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert("Selecione um arquivo CSV.");
+        return;
+    }
+
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        delimiter: ";",
+
+        complete: async function(results) {
+            const rows = results.data;
+
+            if (!rows.length) {
+                alert("CSV vazio.");
+                return;
+            }
+
+            const payload = rows.map(r => {
+                const nome = obterCampo(r, [
+                    "Nome",
+                    "nome",
+                    "NOME",
+                    "Nome Completo",
+                    "Participante"
+                ]);
+
+                const numeroInscricao = obterCampo(r, [
+                    "Número de Inscrição",
+                    "Numero de Inscricao",
+                    "Nº Inscrição",
+                    "N Inscrição",
+                    "Inscrição",
+                    "inscricao",
+                    "numero_inscricao"
+                ]).trim();
+
+                return {
+                    evento_id: atividade.id,
+                    nome: nome,
+                    numero_inscricao: numeroInscricao
+                };
+            }).filter(p =>
+                p.nome &&
+                p.numero_inscricao &&
+                String(p.numero_inscricao).trim() !== ""
+            );
+
+            if (!payload.length) {
+                console.log("DEBUG CSV:", rows);
+                alert("Nenhum registro válido encontrado no CSV. Verifique se há participantes com Número de Inscrição preenchido.");
+                return;
+            }
+
+            const payloadSemDuplicados = Array.from(
+                new Map(
+                    payload.map(item => [
+                        `${item.evento_id}-${item.numero_inscricao}`,
+                        item
+                    ])
+                ).values()
+            );
+
+            const ignoradosPorDuplicidade = payload.length - payloadSemDuplicados.length;
+            const ignoradosSemInscricao = rows.length - payload.length;
+
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/inscritos?on_conflict=evento_id,numero_inscricao`,
+                {
+                    method: "POST",
+                    headers: headers({
+                        "Content-Type": "application/json",
+                        "Prefer": "resolution=merge-duplicates,return=minimal"
+                    }),
+                    body: JSON.stringify(payloadSemDuplicados)
+                }
+            );
+
+            if (!res.ok) {
+                const erro = await res.text();
+                alert("Erro ao importar CSV:\n" + erro);
+                return;
+            }
+
+            alert(
+                `Importação concluída para a atividade "${atividade.nome}".\n\n` +
+                `Inscritos válidos importados/atualizados: ${payloadSemDuplicados.length}\n` +
+                `Linhas ignoradas sem número de inscrição: ${ignoradosSemInscricao}\n` +
+                `Duplicados dentro do CSV ignorados: ${ignoradosPorDuplicidade}`
+            );
+
+            fileInput.value = "";
+            if (String(EVENTO_ID) === String(atividade.id)) atualizarDashboard();
+            atualizarResumoGeralAdmin();
+        }
+    });
+}
+
+async function atualizarDashboard() {
+    if (!EVENTO_ID) {
+        limparTelaEvento();
+        return;
+    }
+
+    const resInscritos = await fetch(
+        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&select=id`,
+        { headers: headers() }
+    );
+
+    const resPresencas = await fetch(
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=id,inscrito_id`,
+        { headers: headers() }
+    );
+
+    const resMovimentacoes = await fetch(
+        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}&select=inscrito_id,tipo_movimento,horario&order=horario.asc`,
+        { headers: headers() }
+    );
+
+    if (!resInscritos.ok || !resPresencas.ok || !resMovimentacoes.ok) {
+        console.error("Erro ao atualizar dashboard.");
+        return;
+    }
+
+    const inscritos = await resInscritos.json();
+    const presencas = await resPresencas.json();
+    const movimentacoes = await resMovimentacoes.json();
+
+    const totalInscritos = inscritos.length;
+    const totalPresencas = presencas.length;
+    const pendentes = Math.max(totalInscritos - totalPresencas, 0);
+
+    const ultimoMovimentoPorInscrito = {};
+
+    movimentacoes.forEach(mov => {
+        ultimoMovimentoPorInscrito[mov.inscrito_id] = mov.tipo_movimento;
+    });
+
+    const fora = Object.values(ultimoMovimentoPorInscrito)
+        .filter(tipo => tipo === "saida")
+        .length;
+
+    document.getElementById("dashboardInscritos").innerText = totalInscritos;
+    document.getElementById("dashboardPresencas").innerText = totalPresencas;
+    document.getElementById("dashboardPendentes").innerText = pendentes;
+    document.getElementById("dashboardFora").innerText = fora;
+    document.getElementById("totalPresencas").innerText = `Presenças: ${totalPresencas}`;
+    atualizarEspelhosAdmin();
+}
+
+async function verInscritos() {
+    if (!EVENTO_ID) {
+        alert("Selecione um evento primeiro.");
+        return;
+    }
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&select=nome,numero_inscricao&order=nome.asc`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        alert("Erro ao buscar inscritos:\n" + await res.text());
+        return;
+    }
+
+    const inscritos = await res.json();
+
+    if (!inscritos.length) {
+        alert("Nenhum inscrito importado para este evento.");
+        return;
+    }
+
+    const texto = inscritos
+        .map((i, index) => `${index + 1}. ${i.nome} — ${i.numero_inscricao}`)
+        .join("\n");
+
+    alert(`Inscritos importados em "${EVENTO_NOME}":\n\n${texto}`);
+}
+
+async function carregarPresencas() {
+    if (!EVENTO_ID) return;
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,horario_checkin,inscritos(nome)&order=horario_checkin.desc`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        const erro = await res.text();
+        console.error("Erro ao carregar presenças:", erro);
+        return;
+    }
+
+    const dados = await res.json();
+    const tbody = document.getElementById("listaPresencas");
+    tbody.innerHTML = "";
+
+    dados.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${item.inscritos?.nome || ""}</td>
+            <td>${item.numero_inscricao || ""}</td>
+            <td>${item.horario_checkin ? new Date(item.horario_checkin).toLocaleString("pt-BR") : ""}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById("totalPresencas").innerText = `Presenças: ${dados.length}`;
+}
+
+async function carregarMovimentacoes() {
+    if (!EVENTO_ID) return;
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}&select=numero_inscricao,tipo_movimento,horario,inscritos(nome)&order=horario.desc&limit=30`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        console.error("Erro ao carregar movimentações:", await res.text());
+        return;
+    }
+
+    const dados = await res.json();
+    const tbody = document.getElementById("listaMovimentacoes");
+    tbody.innerHTML = "";
+
+    dados.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${item.inscritos?.nome || ""}</td>
+            <td>${item.numero_inscricao || ""}</td>
+            <td>${formatarMovimento(item.tipo_movimento)}</td>
+            <td>${item.horario ? new Date(item.horario).toLocaleString("pt-BR") : ""}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function formatarMovimento(tipo) {
+    if (tipo === "entrada") return "Entrada";
+    if (tipo === "saida") return "Saída";
+    if (tipo === "retorno") return "Retorno";
+    return tipo || "";
+}
+
+async function buscarUltimoMovimento(inscritoId) {
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${EVENTO_ID}&inscrito_id=eq.${inscritoId}&select=tipo_movimento,horario&order=horario.desc&limit=1`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        throw new Error(await res.text());
+    }
+
+    const dados = await res.json();
+    return dados[0] || null;
+}
+
+async function inserirMovimento(inscrito, tipo) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca`, {
+        method: "POST",
+        headers: headers({
+            "Content-Type": "application/json"
+        }),
+        body: JSON.stringify({
+            evento_id: EVENTO_ID,
+            inscrito_id: inscrito.id,
+            numero_inscricao: inscrito.numero_inscricao,
+            tipo_movimento: tipo
+        })
+    });
+
+    if (!res.ok) {
+        throw new Error(await res.text());
+    }
+}
+
+async function registrarPresenca(qrCodeMessage) {
+    if (processando) return;
+    processando = true;
+
+    if (!EVENTO_ID) {
+        document.getElementById("resultado").innerHTML = `<span class="erro">Selecione um evento primeiro.</span>`;
+        tocarSom("erro");
+        setStatus("erro");
+        resetarLeitura();
+        return;
+    }
+
+    let numeroInscricao = qrCodeMessage.trim();
+
+    const resInscrito = await fetch(
+        `${SUPABASE_URL}/rest/v1/inscritos?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${encodeURIComponent(numeroInscricao)}&select=id,nome,numero_inscricao`,
+        { headers: headers() }
+    );
+
+    if (!resInscrito.ok) {
+        const erro = await resInscrito.text();
+        document.getElementById("resultado").innerHTML = `<span class="erro">Erro ao buscar inscrito: ${erro}</span>`;
+        tocarSom("erro");
+        setStatus("erro");
+        resetarLeitura();
+        return;
+    }
+
+    const inscritos = await resInscrito.json();
+
+    if (!inscritos.length) {
+        document.getElementById("resultado").innerHTML = `<span class="erro">Inscrição não encontrada neste evento.</span>`;
+        tocarSom("erro");
+        setStatus("erro");
+        resetarLeitura();
+        return;
+    }
+
+    const inscrito = inscritos[0];
+
+    try {
+        const resCheck = await fetch(
+            `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${EVENTO_ID}&numero_inscricao=eq.${numeroInscricao}&select=id`,
+            { headers: headers() }
+        );
+
+        if (!resCheck.ok) {
+            throw new Error(await resCheck.text());
+        }
+
+        const jaExiste = await resCheck.json();
+
+        if (!jaExiste.length) {
+            const resInsert = await fetch(`${SUPABASE_URL}/rest/v1/presencas`, {
+                method: "POST",
+                headers: headers({
+                    "Content-Type": "application/json"
+                }),
+                body: JSON.stringify({
+                    evento_id: EVENTO_ID,
+                    inscrito_id: inscrito.id,
+                    numero_inscricao: inscrito.numero_inscricao,
+                    metodo: "qr"
+                })
+            });
+
+            if (!resInsert.ok) {
+                throw new Error(await resInsert.text());
+            }
+
+            await inserirMovimento(inscrito, "entrada");
+
+            document.getElementById("resultado").innerHTML = `<span class="ok">✅ ${inscrito.nome} registrado com sucesso! Entrada registrada.</span>`;
+            tocarSom("ok");
+            setStatus("ok");
+
+        } else {
+            const ultimo = await buscarUltimoMovimento(inscrito.id);
+
+            if (!ultimo || ultimo.tipo_movimento === "saida") {
+                const confirmarRetorno = confirm(`${inscrito.nome} já possui presença registrada.\n\nDeseja registrar RETORNO agora?`);
+
+                if (confirmarRetorno) {
+                    await inserirMovimento(inscrito, "retorno");
+                    document.getElementById("resultado").innerHTML = `<span class="ok">✅ Retorno registrado: ${inscrito.nome}</span>`;
+                    tocarSom("ok");
+                    setStatus("ok");
+                } else {
+                    document.getElementById("resultado").innerHTML = `<span class="aviso">Leitura cancelada.</span>`;
+                    setStatus("aviso");
+                }
+
+            } else {
+                const confirmarSaida = confirm(`${inscrito.nome} já está registrado e consta como dentro do evento.\n\nDeseja registrar SAÍDA agora?`);
+
+                if (confirmarSaida) {
+                    await inserirMovimento(inscrito, "saida");
+                    document.getElementById("resultado").innerHTML = `<span class="ok">✅ Saída registrada: ${inscrito.nome}</span>`;
+                    tocarSom("ok");
+                    setStatus("ok");
+                } else {
+                    document.getElementById("resultado").innerHTML = `<span class="aviso">Leitura cancelada.</span>`;
+                    setStatus("aviso");
+                }
+            }
+        }
+
+        carregarPresencas();
+        carregarMovimentacoes();
+        atualizarDashboard();
+        resetarLeitura();
+
+    } catch (err) {
+        document.getElementById("resultado").innerHTML = `<span class="erro">Erro ao registrar movimentação: ${err.message}</span>`;
+        tocarSom("erro");
+        setStatus("erro");
+        resetarLeitura();
+    }
+}
+
+async function exportarExcel() {
+    const atividade = obterAtividadeAdmin("adminRelatorioEventoSelect");
+
+    if (!atividade) {
+        alert("Selecione a atividade do relatório.");
+        return;
+    }
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${atividade.id}` +
+        `&select=numero_inscricao,horario_checkin,inscritos(nome,numero_inscricao,documento,email_institucional,ra_matricula)` +
+        `&order=horario_checkin.desc`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        const erro = await res.text();
+        alert("Erro ao buscar presenças para exportar:\n" + erro);
+        return;
+    }
+
+    const dados = await res.json();
+
+    if (!dados.length) {
+        alert("Nenhuma presença registrada para este evento.");
+        return;
+    }
+
+    const linhas = dados.map(item => ({
+        Nome: item.inscritos?.nome || "",
+        "Número de inscrição": item.inscritos?.numero_inscricao ||
+            item.numero_inscricao || "",
+        CPF: item.inscritos?.documento || "",
+        "E-mail institucional": item.inscritos?.email_institucional || "",
+        "RA / Matrícula": item.inscritos?.ra_matricula || "",
+        "Horário da primeira entrada": item.horario_checkin
+            ? new Date(item.horario_checkin).toLocaleString("pt-BR")
+            : ""
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    ws["!cols"] = [
+        { wch: 38 },
+        { wch: 20 },
+        { wch: 18 },
+        { wch: 42 },
+        { wch: 18 },
+        { wch: 26 }
+    ];
+    ws["!autofilter"] = { ref: `A1:F${linhas.length + 1}` };
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Presencas");
+    XLSX.writeFile(wb, `presencas_${atividade.nome || "atividade"}.xlsx`);
+}
+
+async function buscarTodasPresencas() {
+    const tamanhoLote = 1000;
+    const registros = [];
+    let deslocamento = 0;
+
+    while (true) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/presencas?` +
+            `select=evento_id,numero_inscricao,horario_checkin,inscritos(nome,numero_inscricao,documento,email_institucional,ra_matricula)` +
+            `&order=horario_checkin.asc&limit=${tamanhoLote}&offset=${deslocamento}`,
+            { headers: headers() }
+        );
+
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+
+        const lote = await res.json();
+        registros.push(...lote);
+
+        if (lote.length < tamanhoLote) break;
+        deslocamento += tamanhoLote;
+    }
+
+    return registros;
+}
+
+async function exportarTodasPresencasExcel() {
+    try {
+        const [dados, resEventos] = await Promise.all([
+            buscarTodasPresencas(),
+            fetch(
+                `${SUPABASE_URL}/rest/v1/eventos?select=id,nome&order=nome.asc`,
+                { headers: headers() }
+            )
+        ]);
+
+        if (!resEventos.ok) {
+            throw new Error(await resEventos.text());
+        }
+
+        if (!dados.length) {
+            alert("Nenhuma presença registrada nas atividades.");
+            return;
+        }
+
+        const eventos = await resEventos.json();
+        const nomeEventoPorId = new Map(
+            eventos.map(evento => [String(evento.id), evento.nome || ""])
+        );
+
+        const linhas = dados.map(item => ({
+            Nome: item.inscritos?.nome || "",
+            "Número de inscrição": item.inscritos?.numero_inscricao ||
+                item.numero_inscricao || "",
+            CPF: item.inscritos?.documento || "",
+            "E-mail institucional": item.inscritos?.email_institucional || "",
+            "RA / Matrícula": item.inscritos?.ra_matricula || "",
+            "Horário da primeira entrada": item.horario_checkin
+                ? new Date(item.horario_checkin).toLocaleString("pt-BR")
+                : "",
+            Atividade: nomeEventoPorId.get(String(item.evento_id)) || "Atividade não encontrada"
+        }));
+
+        linhas.sort((a, b) =>
+            a.Atividade.localeCompare(b.Atividade, "pt-BR") ||
+            a.Nome.localeCompare(b.Nome, "pt-BR")
+        );
+
+        const ws = XLSX.utils.json_to_sheet(linhas);
+        ws["!cols"] = [
+            { wch: 38 },
+            { wch: 20 },
+            { wch: 18 },
+            { wch: 42 },
+            { wch: 18 },
+            { wch: 26 },
+            { wch: 52 }
+        ];
+        ws["!autofilter"] = { ref: `A1:G${linhas.length + 1}` };
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Todas as presencas");
+        XLSX.writeFile(wb, "presencas_todas_atividades.xlsx");
+    } catch (erro) {
+        console.error("Erro ao exportar todas as presenças:", erro);
+        alert("Erro ao buscar todas as presenças para exportar:\n" + erro.message);
+    }
+}
+
+async function exportarMovimentacoesExcel() {
+    const atividade = obterAtividadeAdmin("adminRelatorioEventoSelect");
+
+    if (!atividade) {
+        alert("Selecione a atividade do relatório.");
+        return;
+    }
+
+    const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${atividade.id}&select=numero_inscricao,tipo_movimento,horario,inscritos(nome)&order=horario.asc`,
+        { headers: headers() }
+    );
+
+    if (!res.ok) {
+        alert("Erro ao buscar movimentações:\n" + await res.text());
+        return;
+    }
+
+    const dados = await res.json();
+
+    if (!dados.length) {
+        alert("Nenhuma movimentação registrada para este evento.");
+        return;
+    }
+
+    const linhas = dados.map(item => ({
+        Nome: item.inscritos?.nome || "",
+        Inscricao: item.numero_inscricao || "",
+        Movimento: formatarMovimento(item.tipo_movimento),
+        Horario: item.horario ? new Date(item.horario).toLocaleString("pt-BR") : ""
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Movimentacoes");
+    XLSX.writeFile(wb, `movimentacoes_${atividade.nome || "atividade"}.xlsx`);
+}
+
+async function buscarTodasMovimentacoes() {
+    const tamanhoLote = 1000;
+    const registros = [];
+    let deslocamento = 0;
+
+    while (true) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/movimentacoes_presenca?` +
+            `select=evento_id,numero_inscricao,tipo_movimento,horario,inscritos(nome,numero_inscricao,documento,email_institucional,ra_matricula)` +
+            `&order=horario.asc&limit=${tamanhoLote}&offset=${deslocamento}`,
+            { headers: headers() }
+        );
+
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+
+        const lote = await res.json();
+        registros.push(...lote);
+
+        if (lote.length < tamanhoLote) break;
+        deslocamento += tamanhoLote;
+    }
+
+    return registros;
+}
+
+async function exportarTodasMovimentacoesExcel() {
+    try {
+        const [dados, resEventos] = await Promise.all([
+            buscarTodasMovimentacoes(),
+            fetch(
+                `${SUPABASE_URL}/rest/v1/eventos?select=id,nome&order=nome.asc`,
+                { headers: headers() }
+            )
+        ]);
+
+        if (!resEventos.ok) {
+            throw new Error(await resEventos.text());
+        }
+
+        const eventos = await resEventos.json();
+
+        const eventosAtividades = eventos.filter(
+            evento => String(evento.nome || "") !== NOME_EVENTO_COLABORADORES
+        );
+
+        const idsAtividades = new Set(
+            eventosAtividades.map(evento => String(evento.id))
+        );
+
+        const nomeEventoPorId = new Map(
+            eventosAtividades.map(evento => [String(evento.id), evento.nome || ""])
+        );
+
+        const dadosAtividades = dados.filter(
+            item => idsAtividades.has(String(item.evento_id))
+        );
+
+        if (!dadosAtividades.length) {
+            alert("Nenhuma movimentação registrada nas atividades.");
+            return;
+        }
+
+        const linhasComHorario = dadosAtividades.map(item => ({
+            Atividade: nomeEventoPorId.get(String(item.evento_id)) || "Atividade não encontrada",
+            Nome: item.inscritos?.nome || "",
+            "Número de inscrição": item.inscritos?.numero_inscricao ||
+                item.numero_inscricao || "",
+            CPF: item.inscritos?.documento || "",
+            "E-mail institucional": item.inscritos?.email_institucional || "",
+            "RA / Matrícula": item.inscritos?.ra_matricula || "",
+            Movimento: formatarMovimento(item.tipo_movimento),
+            Horário: item.horario
+                ? new Date(item.horario).toLocaleString("pt-BR")
+                : "",
+            _horarioRaw: item.horario || ""
+        }));
+
+        linhasComHorario.sort((a, b) =>
+            a.Atividade.localeCompare(b.Atividade, "pt-BR") ||
+            String(a._horarioRaw).localeCompare(String(b._horarioRaw)) ||
+            a.Nome.localeCompare(b.Nome, "pt-BR")
+        );
+
+        const linhas = linhasComHorario.map(({ _horarioRaw, ...linha }) => linha);
+
+        const ws = XLSX.utils.json_to_sheet(linhas);
+        ws["!cols"] = [
+            { wch: 52 },
+            { wch: 38 },
+            { wch: 20 },
+            { wch: 18 },
+            { wch: 42 },
+            { wch: 18 },
+            { wch: 16 },
+            { wch: 24 }
+        ];
+        ws["!autofilter"] = { ref: `A1:H${linhas.length + 1}` };
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Todas movimentacoes");
+        XLSX.writeFile(wb, "movimentacoes_todas_atividades.xlsx");
+    } catch (erro) {
+        console.error("Erro ao exportar todas as movimentações:", erro);
+        alert("Erro ao buscar todas as movimentações para exportar:\n" + erro.message);
+    }
+}
+
+async function limparEventoAtual() {
+    const atividade = obterAtividadeAdmin("adminRiscoEventoSelect");
+
+    if (!atividade) {
+        alert("Selecione a atividade que deseja limpar.");
+        return;
+    }
+
+    if (!autenticarZonaRisco(`limpar as movimentações da atividade “${atividade.nome}”`)) return;
+
+    const confirmar = confirm(
+        `Tem certeza que deseja apagar todas as entradas, saídas, retornos e presenças ` +
+        `registradas da atividade "${atividade.nome}"?\n\n` +
+        `A atividade e os participantes cadastrados serão preservados.`
+    );
+    if (!confirmar) return;
+
+    const r0 = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?evento_id=eq.${atividade.id}`, {
+        method: "DELETE",
+        headers: headers()
+    });
+
+    const r1 = await fetch(`${SUPABASE_URL}/rest/v1/presencas?evento_id=eq.${atividade.id}`, {
+        method: "DELETE",
+        headers: headers()
+    });
+
+    if (r0.ok && r1.ok) {
+        alert(
+            `Movimentações da atividade "${atividade.nome}" apagadas com sucesso.\n\n` +
+            `A atividade e todos os participantes cadastrados foram preservados.`
+        );
+        if (String(EVENTO_ID) === String(atividade.id)) {
+            carregarPresencas();
+            carregarMovimentacoes();
+            atualizarDashboard();
+        }
+        atualizarResumoGeralAdmin();
+    } else {
+        const erro0 = !r0.ok ? await r0.text() : "";
+        const erro1 = !r1.ok ? await r1.text() : "";
+        alert("Erro ao limpar as movimentações da atividade:\n" + erro0 + "\n" + erro1);
+    }
+}
+
+async function resetCompleto() {
+    if (!autenticarZonaRisco("realizar o reset completo")) return;
+
+    const confirmar = confirm("ATENÇÃO: Isso vai apagar TODOS os eventos, inscritos, presenças, movimentações e dados de colaboradores. Continuar?");
+    if (!confirmar) return;
+
+    const m = await fetch(`${SUPABASE_URL}/rest/v1/movimentacoes_presenca?id=not.is.null`, {
+        method: "DELETE",
+        headers: headers()
+    });
+
+    if (!m.ok) {
+        alert("Erro ao apagar movimentações:\n" + await m.text());
+        return;
+    }
+
+    const a = await fetch(`${SUPABASE_URL}/rest/v1/presencas?id=not.is.null`, {
+        method: "DELETE",
+        headers: headers()
+    });
+
+    if (!a.ok) {
+        alert("Erro ao apagar presenças:\n" + await a.text());
+        return;
+    }
+
+    const b = await fetch(`${SUPABASE_URL}/rest/v1/inscritos?id=not.is.null`, {
+        method: "DELETE",
+        headers: headers()
+    });
+
+    if (!b.ok) {
+        alert("Erro ao apagar inscritos:\n" + await b.text());
+        return;
+    }
+
+    const c = await fetch(`${SUPABASE_URL}/rest/v1/eventos?id=not.is.null`, {
+        method: "DELETE",
+        headers: headers()
+    });
+
+    if (!c.ok) {
+        alert("Erro ao apagar eventos:\n" + await c.text());
+        return;
+    }
+
+    alert("RESET COMPLETO realizado.");
+
+    document.getElementById("listaPresencas").innerHTML = "";
+    document.getElementById("listaMovimentacoes").innerHTML = "";
+    document.getElementById("totalPresencas").innerText = "Presenças: 0";
+    document.getElementById("eventoSelect").innerHTML = `<option value="">Nenhum evento cadastrado</option>`;
+    EVENTO_ID = "";
+    EVENTO_NOME = "";
+    EVENTOS_DISPONIVEIS = [];
+    preencherSeletoresAdmin();
+    limparTelaEvento();
+    resetarPainelColaboradores();
+    definirResultadoColaborador("", "");
+    atualizarResumoGeralAdmin();
+}
+
+carregarEventos();
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && document.body.classList.contains("admin-open")) {
+        fecharAdmin();
+    }
+});
+
+setInterval(() => {
+    if (EVENTO_ID) {
+        atualizarDashboard();
+        carregarPresencas();
+        carregarMovimentacoes();
+    }
+
+    if (document.getElementById("adminSection-colaboradores")?.classList.contains("is-active") &&
+        document.body.classList.contains("admin-open")) {
+        carregarPainelColaboradores();
+    }
+}, 20000);
+</script>
+
+</body>
+</html>
