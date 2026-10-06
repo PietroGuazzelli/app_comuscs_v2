@@ -751,7 +751,7 @@ body.admin-standalone {
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-10-05.ADM1</strong>
+        <strong>Versão 2026-10-05.ADM2</strong>
         Interface mobile · participantes e colaboradores
       </div>
     </aside>
@@ -823,7 +823,7 @@ body.admin-standalone {
         <div class="admin-section-heading">
           <p class="eyebrow">Controle de colaboradores</p>
           <h2>Entrada e saída por CPF</h2>
-          <p>Importe a relação previamente e use o CPF para alternar automaticamente entre entrada e saída.</p>
+          <p>Gerencie a relação de colaboradores e acompanhe os registros. A validação de entrada e saída é realizada no App Operacional.</p>
         </div>
         <div class="admin-grid">
           <article class="admin-card admin-card-full">
@@ -841,16 +841,8 @@ body.admin-standalone {
           </article>
 
           <article class="admin-card admin-card-full">
-            <h4>2. Validar presença</h4>
-            <p class="muted">Na primeira validação o sistema registra a entrada. Na validação seguinte do mesmo CPF, registra a saída.</p>
-            <form id="formValidacaoColaborador" class="collaborator-validation-row mt-18" onsubmit="registrarPresencaColaborador(event)">
-              <div class="field-group">
-                <label for="cpfColaboradorInput">CPF do colaborador</label>
-                <input id="cpfColaboradorInput" type="text" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="000.000.000-00" oninput="formatarCampoCpf(this)">
-              </div>
-              <button type="submit" id="btnValidarColaborador" class="button-primary">Validar presença</button>
-            </form>
-            <div id="resultadoColaborador" class="result collaborator-result" role="status" aria-live="polite"></div>
+            <h4>2. Resumo dos colaboradores</h4>
+            <p class="muted">A validação de entrada e saída foi movida para o App Operacional. Aqui permanecem a gestão da lista, o acompanhamento e a exportação.</p>
             <div class="collaborator-stats" aria-label="Resumo dos colaboradores">
               <div class="collaborator-stat"><span>Importados</span><strong id="colabResumoImportados">0</strong></div>
               <div class="collaborator-stat"><span>Com entrada</span><strong id="colabResumoEntradas">0</strong></div>
@@ -1056,7 +1048,6 @@ function trocarSecaoAdmin(secao) {
     if (secao === "visao") atualizarResumoGeralAdmin();
     if (secao === "colaboradores") {
         carregarPainelColaboradores();
-        setTimeout(() => document.getElementById("cpfColaboradorInput")?.focus(), 80);
     }
 
     if (window.innerWidth <= 820) toggleAdminMenu(false);
@@ -2015,7 +2006,6 @@ async function importarColaboradoresExcel() {
         );
         await carregarPainelColaboradores();
         atualizarResumoGeralAdmin();
-        document.getElementById("cpfColaboradorInput")?.focus();
     } catch (erro) {
         console.error("Erro na importação de colaboradores:", erro);
         definirStatusColaboradores(`Erro ao importar: ${erro.message}`, "erro");
