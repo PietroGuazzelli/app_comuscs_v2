@@ -882,6 +882,8 @@ let colaboradorProcessando = false;
 let EVENTO_ID = "";
 let EVENTO_NOME = "";
 let EVENTOS_DISPONIVEIS = [];
+const SENHA_MODULO_COLABORADORES = "Guacamole";
+let MODULO_COLABORADORES_LIBERADO = false;
 
 let cameraAtiva = false;
 let camerasDisponiveis = [];
@@ -901,6 +903,19 @@ function headers(extra = {}) {
 }
 
 function abrirValidacaoColaboradores() {
+    if (!MODULO_COLABORADORES_LIBERADO) {
+        const senha = prompt("Digite a senha para abrir a validação de colaboradores:");
+
+        if (senha === null) return;
+
+        if (senha !== SENHA_MODULO_COLABORADORES) {
+            alert("Senha incorreta.");
+            return;
+        }
+
+        MODULO_COLABORADORES_LIBERADO = true;
+    }
+
     const shell = document.getElementById("colabOpsShell");
     shell.classList.add("is-open");
     shell.setAttribute("aria-hidden", "false");
