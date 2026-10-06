@@ -751,7 +751,7 @@ body.admin-standalone {
       </nav>
 
       <div class="admin-version">
-        <strong>Versão 2026-10-05.ADM2</strong>
+        <strong>Versão 2026-10-05.ADM3</strong>
         Interface mobile · participantes e colaboradores
       </div>
     </aside>
@@ -794,14 +794,18 @@ body.admin-standalone {
           <article class="admin-card admin-card-full">
             <h4>Importação completa do Even3</h4>
             <p class="muted">O aplicativo cruza o ID interno com o Número de inscrição e usa esse número na leitura do QR Code.</p>
-            <div class="admin-callout">Selecione os dois arquivos antes de iniciar. O aplicativo compara os dados e grava somente atividades ou participantes novos e campos realmente alterados.</div>
+            <div class="admin-callout">Selecione os três arquivos antes de iniciar. A Lista de Atividades fornece a data e o tipo de cada atividade; as outras duas planilhas vinculam os participantes e seus números de inscrição.</div>
             <div class="field-group mt-18">
-              <label for="excelInscritosEven3Input">1. Lista Inscritos — atividades</label>
+              <label for="excelInscritosEven3Input">1. Lista Inscritos — atividades e participantes</label>
               <input type="file" id="excelInscritosEven3Input" accept=".xlsx,.xls">
             </div>
             <div class="field-group mt-14">
               <label for="excelParticipantesEven3Input">2. ListaParticipante — números de inscrição</label>
               <input type="file" id="excelParticipantesEven3Input" accept=".xlsx,.xls">
+            </div>
+            <div class="field-group mt-14">
+              <label for="excelAtividadesEven3Input">3. Lista de Atividades — data e tipo</label>
+              <input type="file" id="excelAtividadesEven3Input" accept=".xlsx,.xls">
             </div>
             <div class="button-row">
               <button type="button" id="btnImportarExcelEven3" class="button-primary" onclick="importarExcelEven3()">Cruzar planilhas e importar</button>
@@ -1057,6 +1061,32 @@ function atualizarEspelhosAdmin() {
     if (document.body.classList.contains("admin-open")) atualizarResumoGeralAdmin();
 }
 
+async function contarRegistrosExato(caminho) {
+    const separador = caminho.includes("?") ? "&" : "?";
+    const resposta = await fetch(
+        `${SUPABASE_URL}/rest/v1/${caminho}${separador}select=id&limit=1`,
+        {
+            headers: headers({
+                "Prefer": "count=exact",
+                "Range": "0-0"
+            })
+        }
+    );
+
+    if (!resposta.ok) throw new Error(await resposta.text());
+
+    const contentRange = resposta.headers.get("content-range") || "";
+    const totalTexto = contentRange.split("/").pop();
+    const total = Number(totalTexto);
+
+    if (!Number.isFinite(total)) {
+        const dados = await resposta.json();
+        return dados.length;
+    }
+
+    return total;
+}
+
 async function atualizarResumoGeralAdmin() {
     const destinos = {
         eventos: document.getElementById("adminResumoEventos"),
@@ -1070,23 +1100,25 @@ async function atualizarResumoGeralAdmin() {
     try {
         const eventoColaboradores = await obterEventoColaboradores(false);
         const filtroAtividades = eventoColaboradores
-            ? `evento_id=neq.${encodeURIComponent(eventoColaboradores.id)}&`
+            ? `evento_id=neq.${encodeURIComponent(eventoColaboradores.id)}`
             : "";
+
         const consultas = [
-            ["eventos", `eventos?nome=neq.${encodeURIComponent(NOME_EVENTO_COLABORADORES)}&select=id`],
-            ["inscritos", `inscritos?${filtroAtividades}select=id`],
-            ["presencas", `presencas?${filtroAtividades}select=id`],
-            ["movimentacoes", `movimentacoes_presenca?${filtroAtividades}select=id`]
+            ["eventos", `eventos?nome=neq.${encodeURIComponent(NOME_EVENTO_COLABORADORES)}`],
+            ["inscritos", `inscritos${filtroAtividades ? "?" + filtroAtividades : ""}`],
+            ["presencas", `presencas${filtroAtividades ? "?" + filtroAtividades : ""}`],
+            ["movimentacoes", `movimentacoes_presenca${filtroAtividades ? "?" + filtroAtividades : ""}`]
         ];
 
-        const resultados = await Promise.all(consultas.map(async ([chave, caminho]) => {
-            const resposta = await fetch(`${SUPABASE_URL}/rest/v1/${caminho}`, { headers: headers() });
-            if (!resposta.ok) throw new Error(await resposta.text());
-            return [chave, (await resposta.json()).length];
-        }));
+        const resultados = await Promise.all(
+            consultas.map(async ([chave, caminho]) => [
+                chave,
+                await contarRegistrosExato(caminho)
+            ])
+        );
 
         resultados.forEach(([chave, total]) => {
-            if (destinos[chave]) destinos[chave].textContent = total;
+            if (destinos[chave]) destinos[chave].textContent = total.toLocaleString("pt-BR");
         });
     } catch (erro) {
         console.error("Erro ao carregar o resumo administrativo:", erro);
@@ -1453,7 +1485,7 @@ async function trocarCamera() {
 
 async function carregarEventos() {
     const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/eventos?select=id,nome,data_evento&order=criado_em.desc`,
+        `${SUPABASE_URL}/rest/v1/eventos?select=*&order=data_evento.asc,nome.asc`,
         { headers: headers() }
     );
 
@@ -1553,6 +1585,22 @@ const CAMPOS_EVEN3 = Object.freeze({
         "Nome da atividade",
         "Título da atividade",
         "Titulo da atividade"
+    ],
+    atividadeData: [
+        "Data",
+        "Data da atividade",
+        "Data do evento",
+        "Data de início",
+        "Data de inicio",
+        "Início",
+        "Inicio"
+    ],
+    atividadeTipo: [
+        "Tipo",
+        "Tipo da atividade",
+        "Tipo de atividade",
+        "Categoria",
+        "Modalidade"
     ],
     participanteId: [
         "ID",
@@ -1679,6 +1727,145 @@ async function lerPrimeiraAbaExcel(arquivo, nomeArquivo) {
     }
 
     return rows;
+}
+
+
+function normalizarDataAtividade(valor) {
+    const texto = String(valor ?? "").trim();
+    if (!texto) return "";
+
+    let m = texto.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+    if (m) {
+        const [, ano, mes, dia] = m;
+        return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    }
+
+    m = texto.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})\b/);
+    if (m) {
+        const [, dia, mes, ano] = m;
+        return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    }
+
+    return "";
+}
+
+async function lerListaAtividadesExcel(arquivo) {
+    const dadosArquivo = await arquivo.arrayBuffer();
+    const workbook = XLSX.read(dadosArquivo, { type: "array" });
+
+    if (!workbook.SheetNames.length) {
+        throw new Error("Lista de Atividades: o arquivo não possui nenhuma planilha.");
+    }
+
+    const primeiraAba = workbook.Sheets[workbook.SheetNames[0]];
+    const linhas = XLSX.utils.sheet_to_json(primeiraAba, {
+        header: 1,
+        defval: "",
+        raw: false
+    });
+
+    if (linhas.length < 2) {
+        throw new Error("Lista de Atividades: a planilha está vazia ou sem registros.");
+    }
+
+    return linhas;
+}
+
+function analisarListaAtividadesEven3(linhas) {
+    const cabecalhos = (linhas[0] || []).map(normalizarCabecalho);
+
+    const localizarIndice = aliases => {
+        for (const alias of aliases) {
+            const indice = cabecalhos.indexOf(normalizarCabecalho(alias));
+            if (indice >= 0) return indice;
+        }
+        return -1;
+    };
+
+    let indiceId = localizarIndice(CAMPOS_EVEN3.atividadeId);
+    let indiceTipo = localizarIndice(CAMPOS_EVEN3.atividadeTipo);
+    const indiceData = localizarIndice(CAMPOS_EVEN3.atividadeData);
+    const indiceNome = localizarIndice(CAMPOS_EVEN3.atividadeNome);
+
+    // Conforme o relatório utilizado pelo COMUSCS: ID na coluna A e tipo na coluna B.
+    if (indiceId < 0) indiceId = 0;
+    if (indiceTipo < 0) indiceTipo = 1;
+
+    if (indiceData < 0) {
+        throw new Error(
+            "Lista de Atividades: não encontrei uma coluna de data. " +
+            "Use o relatório que contenha a data de cada atividade."
+        );
+    }
+
+    const porId = new Map();
+    const invalidas = [];
+
+    linhas.slice(1).forEach((linha, indiceLinha) => {
+        const id = String(linha[indiceId] ?? "").trim();
+        const tipo = String(linha[indiceTipo] ?? "").trim();
+        const data = normalizarDataAtividade(linha[indiceData]);
+        const nome = indiceNome >= 0 ? String(linha[indiceNome] ?? "").trim() : "";
+
+        if (!/^\d{3,}$/.test(id)) return;
+
+        if (!tipo || !data) {
+            invalidas.push({
+                linha: indiceLinha + 2,
+                id,
+                nome,
+                tipo,
+                data
+            });
+            return;
+        }
+
+        porId.set(id, {
+            even3_atividade_id: id,
+            tipo_atividade: tipo,
+            data_evento: data,
+            nome_lista_atividades: nome
+        });
+    });
+
+    if (!porId.size) {
+        throw new Error(
+            "Lista de Atividades: nenhum registro válido com ID, tipo e data foi encontrado."
+        );
+    }
+
+    return { porId, invalidas };
+}
+
+function aplicarMetadadosListaAtividades(atividades, metadados) {
+    const faltantes = [];
+    const enriquecidas = atividades.map(atividade => {
+        const meta = metadados.porId.get(String(atividade.even3_atividade_id));
+
+        if (!meta) {
+            faltantes.push(atividade);
+            return atividade;
+        }
+
+        return {
+            ...atividade,
+            data_evento: meta.data_evento,
+            tipo_atividade: meta.tipo_atividade
+        };
+    });
+
+    if (faltantes.length) {
+        const exemplos = faltantes.slice(0, 5)
+            .map(item => `${item.nome} (ID ${item.even3_atividade_id})`)
+            .join(", ");
+
+        throw new Error(
+            `${faltantes.length} atividade(s) da Lista Inscritos não foram localizadas na Lista de Atividades. ` +
+            `Exemplos: ${exemplos}. Verifique se os três relatórios pertencem ao mesmo evento.`
+        );
+    }
+
+    return enriquecidas;
 }
 
 function validarCpf(cpf) {
@@ -2562,9 +2749,7 @@ function obterAlteracoesParticipante(existente, participante) {
 }
 
 async function sincronizarAtividadesEven3(atividades) {
-    const eventosExistentes = await buscarTodosEmLotes(
-        "eventos?select=id,nome,even3_atividade_id"
-    );
+    const eventosExistentes = await buscarTodosEmLotes("eventos?select=*");
     const porIdEven3 = new Map();
 
     eventosExistentes.forEach(evento => {
@@ -2585,73 +2770,83 @@ async function sincronizarAtividadesEven3(atividades) {
 
     for (const atividade of atividades) {
         const chave = String(atividade.even3_atividade_id);
-        const existentePorId = porIdEven3.get(chave);
+        let existente = porIdEven3.get(chave);
 
-        if (existentePorId) {
-            if (String(existentePorId.nome || "").trim() === String(atividade.nome || "").trim()) {
-                inalteradas++;
-                continue;
-            }
-
-            const resAtualizacao = await fetch(
-                `${SUPABASE_URL}/rest/v1/eventos?id=eq.${encodeURIComponent(existentePorId.id)}`,
-                {
-                    method: "PATCH",
-                    headers: headers({
-                        "Content-Type": "application/json",
-                        "Prefer": "return=minimal"
-                    }),
-                    body: JSON.stringify({ nome: atividade.nome })
-                }
+        if (!existente) {
+            const candidatosPorNome = eventosExistentes.filter(evento =>
+                !evento.even3_atividade_id &&
+                normalizarTexto(evento.nome) === normalizarTexto(atividade.nome)
             );
 
-            if (!resAtualizacao.ok) throw new Error(await resAtualizacao.text());
-            atualizadas++;
+            if (candidatosPorNome.length > 1) {
+                throw new Error(
+                    `Há mais de uma atividade chamada “${atividade.nome}” sem vínculo com o Even3. ` +
+                    `A importação foi interrompida para evitar duplicidade.`
+                );
+            }
+
+            existente = candidatosPorNome.length === 1 ? candidatosPorNome[0] : null;
+        }
+
+        if (!existente) {
+            novas.push({
+                even3_atividade_id: atividade.even3_atividade_id,
+                nome: atividade.nome,
+                data_evento: atividade.data_evento || null,
+                tipo_atividade: atividade.tipo_atividade || null
+            });
             continue;
         }
 
-        const candidatosPorNome = eventosExistentes.filter(evento =>
-            !evento.even3_atividade_id &&
-            normalizarTexto(evento.nome) === normalizarTexto(atividade.nome)
-        );
-
-        if (candidatosPorNome.length > 1) {
-            throw new Error(
-                `Há mais de uma atividade chamada “${atividade.nome}” sem vínculo com o Even3. ` +
-                `A importação foi interrompida para evitar duplicidade.`
-            );
+        const alteracoes = {};
+        if (String(existente.nome || "").trim() !== String(atividade.nome || "").trim()) {
+            alteracoes.nome = atividade.nome;
+        }
+        if (String(existente.even3_atividade_id || "") !== chave) {
+            alteracoes.even3_atividade_id = atividade.even3_atividade_id;
+        }
+        if (String(existente.data_evento || "").slice(0,10) !== String(atividade.data_evento || "").slice(0,10)) {
+            alteracoes.data_evento = atividade.data_evento || null;
+        }
+        if (normalizarTexto(existente.tipo_atividade) !== normalizarTexto(atividade.tipo_atividade)) {
+            alteracoes.tipo_atividade = atividade.tipo_atividade || null;
         }
 
-        if (candidatosPorNome.length === 1) {
+        if (!Object.keys(alteracoes).length) {
             inalteradas++;
             continue;
         }
 
-        novas.push(atividade);
+        const resAtualizacao = await fetch(
+            `${SUPABASE_URL}/rest/v1/eventos?id=eq.${encodeURIComponent(existente.id)}`,
+            {
+                method: "PATCH",
+                headers: headers({
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal"
+                }),
+                body: JSON.stringify(alteracoes)
+            }
+        );
+
+        if (!resAtualizacao.ok) throw new Error(await resAtualizacao.text());
+        atualizadas++;
     }
 
     if (novas.length) await inserirNovosEmLotes("eventos", novas);
 
-    const eventosAposSincronizacao = novas.length
-        ? await buscarTodosEmLotes("eventos?select=id,nome,even3_atividade_id")
-        : eventosExistentes;
+    const eventosAposSincronizacao = await buscarTodosEmLotes("eventos?select=*");
     const eventoPorIdEven3 = new Map();
 
     atividades.forEach(atividade => {
         const chave = String(atividade.even3_atividade_id);
-        const porId = eventosAposSincronizacao.find(evento =>
+        const eventoResolvido = eventosAposSincronizacao.find(evento =>
             String(evento.even3_atividade_id || "") === chave
         );
-        const candidatosPorNome = porId ? [] : eventosAposSincronizacao.filter(evento =>
-            !evento.even3_atividade_id &&
-            normalizarTexto(evento.nome) === normalizarTexto(atividade.nome)
-        );
-        const eventoResolvido = porId ||
-            (candidatosPorNome.length === 1 ? candidatosPorNome[0] : null);
 
         if (!eventoResolvido) {
             throw new Error(
-                `A atividade “${atividade.nome}” não pôde ser localizada após a comparação.`
+                `A atividade “${atividade.nome}” não pôde ser localizada após a sincronização.`
             );
         }
 
@@ -2789,25 +2984,33 @@ async function salvarParticipantesEven3(participantes) {
 async function importarExcelEven3() {
     const inputInscritos = document.getElementById("excelInscritosEven3Input");
     const inputParticipantes = document.getElementById("excelParticipantesEven3Input");
+    const inputAtividades = document.getElementById("excelAtividadesEven3Input");
     const botao = document.getElementById("btnImportarExcelEven3");
     const arquivoInscritos = inputInscritos.files[0];
     const arquivoParticipantes = inputParticipantes.files[0];
+    const arquivoAtividades = inputAtividades.files[0];
 
-    if (!arquivoInscritos || !arquivoParticipantes) {
-        alert("Selecione as duas planilhas: Lista Inscritos e ListaParticipante.");
+    if (!arquivoInscritos || !arquivoParticipantes || !arquivoAtividades) {
+        alert("Selecione as três planilhas: Lista Inscritos, ListaParticipante e Lista de Atividades.");
         return;
     }
 
     botao.disabled = true;
-    definirStatusImportacao("Lendo, cruzando e validando as duas planilhas...");
+    definirStatusImportacao("Lendo, cruzando e validando as três planilhas...");
 
     try {
-        const [rowsInscritos, rowsParticipantes] = await Promise.all([
+        const [rowsInscritos, rowsParticipantes, rowsAtividades] = await Promise.all([
             lerPrimeiraAbaExcel(arquivoInscritos, "Lista Inscritos"),
-            lerPrimeiraAbaExcel(arquivoParticipantes, "ListaParticipante")
+            lerPrimeiraAbaExcel(arquivoParticipantes, "ListaParticipante"),
+            lerListaAtividadesExcel(arquivoAtividades)
         ]);
 
         const analise = cruzarPlanilhasEven3(rowsInscritos, rowsParticipantes);
+        const metadadosAtividades = analisarListaAtividadesEven3(rowsAtividades);
+        analise.atividades = aplicarMetadadosListaAtividades(
+            analise.atividades,
+            metadadosAtividades
+        );
 
         if (!analise.atividades.length || !analise.registros.length) {
             throw new Error(
@@ -2826,7 +3029,7 @@ async function importarExcelEven3() {
 
         const confirmar = confirm(
             `Prévia da importação:\n\n` +
-            `${analise.atividades.length} atividade(s)\n` +
+            `${analise.atividades.length} atividade(s) com data e tipo identificados\n` +
             `${analise.registros.length} inscrição(ões) cruzada(s) pelo ID do participante\n` +
             `${analise.participantesSemCorrespondencia.length} vínculo(s) sem correspondência na ListaParticipante\n` +
             `${analise.participantesSemNumero.length} vínculo(s) sem Número de inscrição\n` +
@@ -2881,13 +3084,14 @@ async function importarExcelEven3() {
 
         inputInscritos.value = "";
         inputParticipantes.value = "";
+        inputAtividades.value = "";
         await carregarEventos();
 
     } catch (err) {
         console.error("Erro na importação Even3:", err);
         definirStatusImportacao(
             `Erro ao importar: ${err.message}\n\n` +
-            `Confira se foram selecionados os relatórios Lista Inscritos e ListaParticipante corretos.`,
+            `Confira se foram selecionados os relatórios Lista Inscritos, ListaParticipante e Lista de Atividades corretos.`,
             "erro"
         );
     } finally {
