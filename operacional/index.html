@@ -1921,7 +1921,7 @@ async function buscarDadosColaboradores() {
     const eventoId = encodeURIComponent(evento.id);
     const [colaboradores, movimentacoes] = await Promise.all([
         buscarTodosEmLotes(
-            `inscritos?evento_id=eq.${eventoId}&select=id,nome,numero_inscricao,documento&order=nome.asc`
+            `inscritos?evento_id=eq.${eventoId}&select=id,nome,numero_inscricao&order=nome.asc`
         ),
         buscarTodosEmLotes(
             `movimentacoes_presenca?evento_id=eq.${eventoId}` +
@@ -2159,7 +2159,12 @@ async function registrarPresencaColaborador(event) {
             new Date().toLocaleString("pt-BR")
         );
         tocarSom("ok");
-        await carregarPainelColaboradores();
+
+        try {
+            await carregarPainelColaboradores();
+        } catch (erroPainel) {
+            console.error("Registro concluído, mas o painel não pôde ser atualizado:", erroPainel);
+        }
     } catch (erro) {
         console.error("Erro ao validar colaborador:", erro);
         definirResultadoColaborador("error", `Erro ao registrar: ${erro.message}`);
